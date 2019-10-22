@@ -7,7 +7,7 @@ use nix::sys::signal;
 
 use crate::Report;
 use crate::Result;
-
+use crate::Error;
 use crate::frames::Frames;
 use crate::timer::Timer;
 
@@ -19,6 +19,8 @@ pub struct Profiler {
     timer: Option<Timer>,
     data: HashMap<Frames, i32>,
     sample_counter: i32,
+
+    pub running: bool,
 }
 
 extern "C" fn perf_signal_handler(_signal: c_int) {
@@ -38,16 +40,22 @@ impl Default for Profiler {
             timer: None,
             data: HashMap::new(),
             sample_counter: 0,
+            running: false,
         };
     }
 }
 
 impl Profiler {
     pub fn start(&mut self, frequency: c_int) -> Result<()> {
-        self.register_signal_handler()?;
-        self.start_timer(frequency);
+        if self.running {
+            Err(Error::Running)
+        } else {
+            self.register_signal_handler()?;
+            self.start_timer(frequency);
+            self.running = true;
 
-        Ok(())
+            Ok(())
+        }
     }
 
     pub fn report(&self) -> Result<Report> {
@@ -55,16 +63,20 @@ impl Profiler {
     }
 
     pub fn stop(&mut self) -> Result<()> {
-        self.stop_timer();
-        self.unregister_signal_handler()?;
+        if self.running {
+            self.stop_timer();
+            self.unregister_signal_handler()?;
 
-        println!("SAMPLE SIZE: {}", self.sample_counter);
+            println!("SAMPLE SIZE: {}", self.sample_counter);
 
-        for (key, val) in self.data.iter() {
-            println!("{} {}", key, val);
+            for (key, val) in self.data.iter() {
+                println!("{} {}", key, val);
+            }
+
+            Ok(())
+        } else {
+            Err(Error::NotRunning)
         }
-
-        Ok(())
     }
 
     fn register_signal_handler(&self) -> Result<()> {

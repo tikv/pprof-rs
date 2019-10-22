@@ -6,6 +6,8 @@ quick_error! {
             cause(err)
             description(err.description())
         }
+        Running
+        NotRunning
     }
 }
 
