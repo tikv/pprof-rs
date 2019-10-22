@@ -76,12 +76,6 @@ impl Profiler {
             self.unregister_signal_handler()?;
             self.init()?;
 
-            println!("SAMPLE SIZE: {}", self.sample_counter);
-
-            for (key, val) in self.data.iter() {
-                println!("{} {}", key, val);
-            }
-
             Ok(())
         } else {
             Err(Error::NotRunning)
