@@ -24,7 +24,20 @@ impl PartialEq for Frames {
                 if self_frame.symbols().len() == other_frame.symbols().len() {
                     let iter = self_frame.symbols().iter().zip(other_frame.symbols().iter());
                     iter.map(|(self_symbol, other_symbol)| {
-                        self_symbol.addr() == other_symbol.addr()
+                        match self_symbol.name() {
+                            Some(name) => {
+                                match other_symbol.name() {
+                                    Some(other_name) => name.as_bytes() == other_name.as_bytes(),
+                                    None => false
+                                }
+                            }
+                            None => {
+                                match other_symbol.name() {
+                                    Some(other_name) => false,
+                                    None => true
+                                }
+                            }
+                        }
                     }).all(|result| result)
                 } else {
                     false
@@ -44,7 +57,14 @@ impl Hash for Frames {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.frames.iter().for_each(|frame| {
             frame.symbols().iter().for_each(|symbol| {
-                symbol.addr().hash(state);
+                match symbol.name() {
+                    Some(name) => {
+                        name.as_bytes().hash(state)
+                    }
+                    None => {
+                        0.hash(state)
+                    }
+                }
             })
         })
     }

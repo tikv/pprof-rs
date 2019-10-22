@@ -25,7 +25,12 @@ pub struct Profiler {
 extern "C" fn perf_signal_handler(signal: c_int) {
     let bt = Backtrace::new();
 
-    PROFILER.lock().unwrap().sample(bt);
+    match PROFILER.try_lock() {
+        Ok(mut guard) => {
+            guard.sample(bt);
+        }
+        Err(_) => {}
+    };
 }
 
 impl Default for Profiler {
