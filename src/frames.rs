@@ -10,7 +10,7 @@ pub(crate) struct Frames {
 impl From<Backtrace> for Frames {
     fn from(bt: Backtrace) -> Self {
         Self {
-            frames: bt.frames().to_vec(),
+            frames: bt.frames()[2..].to_vec(),
         }
     }
 }
