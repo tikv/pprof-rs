@@ -74,15 +74,6 @@ impl Display for Frames {
                         write!(f, "{} -> ", name)?;
                     }
                     None => {
-                        write!(f, "Unknown:")?;
-                    }
-                }
-
-                match symbol.addr() {
-                    Some(addr) => {
-                        write!(f, "{:?} -> ", addr)?;
-                    }
-                    None => {
                         write!(f, "Unknown -> ")?;
                     }
                 }
