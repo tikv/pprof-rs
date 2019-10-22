@@ -15,13 +15,8 @@ struct Itimerval {
     pub it_value: Timeval,
 }
 
-#[no_link]
 extern "C" {
-    fn setitimer(
-        which: c_int,
-        new_value: *mut Itimerval,
-        old_value: *mut Itimerval,
-    ) -> c_int;
+    fn setitimer(which: c_int, new_value: *mut Itimerval, old_value: *mut Itimerval) -> c_int;
 }
 
 const ITIMER_PROF: c_int = 2;
@@ -51,6 +46,10 @@ impl Timer {
         };
 
         return Timer { frequency };
+    }
+
+    pub fn frequency(&self) -> c_int {
+        self.frequency
     }
 }
 

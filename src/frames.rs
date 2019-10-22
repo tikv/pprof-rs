@@ -1,10 +1,10 @@
-use backtrace::{BacktraceFrame, Backtrace};
+use backtrace::{Backtrace, BacktraceFrame};
+use std::fmt::{Display, Error as FmtError, Formatter};
 use std::hash::{Hash, Hasher};
-use std::fmt::{Display, Formatter, Error as FmtError};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Frames {
-    pub(crate) frames: Vec<BacktraceFrame>
+    pub(crate) frames: Vec<BacktraceFrame>,
 }
 
 impl From<Backtrace> for Frames {
@@ -22,50 +22,44 @@ impl PartialEq for Frames {
 
             iter.map(|(self_frame, other_frame)| {
                 if self_frame.symbols().len() == other_frame.symbols().len() {
-                    let iter = self_frame.symbols().iter().zip(other_frame.symbols().iter());
-                    iter.map(|(self_symbol, other_symbol)| {
-                        match self_symbol.name() {
-                            Some(name) => {
-                                match other_symbol.name() {
-                                    Some(other_name) => name.as_bytes() == other_name.as_bytes(),
-                                    None => false
-                                }
-                            }
-                            None => {
-                                match other_symbol.name() {
-                                    Some(other_name) => false,
-                                    None => true
-                                }
-                            }
-                        }
-                    }).all(|result| result)
+                    let iter = self_frame
+                        .symbols()
+                        .iter()
+                        .zip(other_frame.symbols().iter());
+                    iter.map(|(self_symbol, other_symbol)| match self_symbol.name() {
+                        Some(name) => match other_symbol.name() {
+                            Some(other_name) => name.as_bytes() == other_name.as_bytes(),
+                            None => false,
+                        },
+                        None => match other_symbol.name() {
+                            Some(_) => false,
+                            None => true,
+                        },
+                    })
+                    .all(|result| result)
                 } else {
                     false
                 }
-            }).all(|result| result)
+            })
+            .all(|result| result)
         } else {
             false
         }
     }
 }
 
-impl Eq for Frames {
-
-}
+impl Eq for Frames {}
 
 impl Hash for Frames {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.frames.iter().for_each(|frame| {
-            frame.symbols().iter().for_each(|symbol| {
-                match symbol.name() {
-                    Some(name) => {
-                        name.as_bytes().hash(state)
-                    }
-                    None => {
-                        0.hash(state)
-                    }
-                }
-            })
+            frame
+                .symbols()
+                .iter()
+                .for_each(|symbol| match symbol.name() {
+                    Some(name) => name.as_bytes().hash(state),
+                    None => 0.hash(state),
+                })
         })
     }
 }
@@ -73,31 +67,23 @@ impl Hash for Frames {
 impl Display for Frames {
     fn fmt(&self, f: &mut Formatter) -> Result<(), FmtError> {
         for frame in self.frames.iter() {
-            write!(f, "FRAME: ");
+            write!(f, "FRAME: ")?;
             for symbol in frame.symbols().iter() {
                 match symbol.name() {
                     Some(name) => {
-                        match name.as_str() {
-                            Some(name) => {
-                                write!(f, "{}:", name);
-                            }
-                            None => {
-                                write!(f, "NotValidUtf8:");
-                            }
-                        }
-//                        write!(f, "{} -> ", name);
+                        write!(f, "{} -> ", name)?;
                     }
                     None => {
-                        write!(f, "Unknown:");
+                        write!(f, "Unknown:")?;
                     }
                 }
 
                 match symbol.addr() {
                     Some(addr) => {
-                        write!(f, "{:?} -> ", addr);
+                        write!(f, "{:?} -> ", addr)?;
                     }
                     None => {
-                        write!(f, "Unknown -> ");
+                        write!(f, "Unknown -> ")?;
                     }
                 }
             }

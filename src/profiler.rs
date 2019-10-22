@@ -1,16 +1,15 @@
-use std::os::raw::{c_int, c_void};
-use std::sync::Mutex;
-use std::ptr::null_mut;
 use std::collections::HashMap;
+use std::os::raw::c_int;
+use std::sync::Mutex;
 
 use backtrace::Backtrace;
 use nix::sys::signal;
 
-use crate::timer;
+use crate::Report;
 use crate::Result;
 
-use crate::timer::Timer;
 use crate::frames::Frames;
+use crate::timer::Timer;
 
 lazy_static::lazy_static! {
     pub static ref PROFILER: Mutex<Profiler> = Mutex::new(Profiler::default());
@@ -22,7 +21,7 @@ pub struct Profiler {
     sample_counter: i32,
 }
 
-extern "C" fn perf_signal_handler(signal: c_int) {
+extern "C" fn perf_signal_handler(_signal: c_int) {
     let bt = Backtrace::new();
 
     match PROFILER.try_lock() {
@@ -35,7 +34,11 @@ extern "C" fn perf_signal_handler(signal: c_int) {
 
 impl Default for Profiler {
     fn default() -> Self {
-        return Profiler { timer: None, data: HashMap::new(), sample_counter: 0, };
+        return Profiler {
+            timer: None,
+            data: HashMap::new(),
+            sample_counter: 0,
+        };
     }
 }
 
@@ -47,19 +50,13 @@ impl Profiler {
         Ok(())
     }
 
-    pub fn report(&self) -> Result<()> {
-        println!("SAMPLE SIZE: {}", self.sample_counter);
-
-        for (key, val) in self.data.iter() {
-            println!("{} {}", key, val);
-        }
-
-        Ok(())
+    pub fn report(&self) -> Result<Report> {
+        Ok(Report::from(&self.data))
     }
 
     pub fn stop(&mut self) -> Result<()> {
         self.stop_timer();
-        self.unregister_signal_handler();
+        self.unregister_signal_handler()?;
 
         println!("SAMPLE SIZE: {}", self.sample_counter);
 
@@ -98,12 +95,12 @@ impl Profiler {
 
         match self.data.get(&frames) {
             Some(count) => {
-                self.data.insert(frames, count+1);
+                let count = count.clone();
+                self.data.insert(frames, count + 1);
             }
             None => {
                 self.data.insert(frames, 1);
             }
         };
-
     }
 }
