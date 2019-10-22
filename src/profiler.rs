@@ -62,10 +62,19 @@ impl Profiler {
         Ok(Report::from(&self.data))
     }
 
+    pub fn init(&mut self) -> Result<()> {
+        self.sample_counter = 0;
+        self.data = HashMap::new();
+        self.running = false;
+
+        Ok(())
+    }
+
     pub fn stop(&mut self) -> Result<()> {
         if self.running {
             self.stop_timer();
             self.unregister_signal_handler()?;
+            self.init()?;
 
             println!("SAMPLE SIZE: {}", self.sample_counter);
 
