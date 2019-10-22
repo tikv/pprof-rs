@@ -1,7 +1,6 @@
 use crate::frames::Frames;
 use std::collections::HashMap;
 use std::fmt::{Display, Error as FmtError, Formatter};
-use std::io::Write;
 
 pub struct Report {
     data: HashMap<Frames, i32>,
@@ -23,6 +22,9 @@ impl Display for Report {
         Ok(())
     }
 }
+
+#[cfg(feature = "flamegraph")]
+use std::io::Write;
 
 #[cfg(feature = "flamegraph")]
 impl Report {

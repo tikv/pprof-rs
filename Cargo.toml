@@ -3,7 +3,7 @@ name = "rsperftools"
 version = "0.1.0"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2018"
-license = "Apache 2.0"
+license = "Apache-2.0"
 description = "An internal perf tools for rust programs."
 repository = "https://github.com/YangKeao/rsperftools"
 
