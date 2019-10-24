@@ -43,20 +43,18 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    rsperftools::PROFILER.lock().unwrap().start(1000).unwrap();
+    rsperftools::PROFILER.write().start(100).unwrap();
 
     loop {
         let mut v = 0;
 
-        for i in 2..500000 {
+        for i in 2..50000 {
             if is_prime_number(i, &prime_numbers) {
                 v += 1;
             }
         }
 
-        println!("Prime numbers: {}", v);
-
-        match rsperftools::PROFILER.lock().unwrap().report() {
+        match rsperftools::PROFILER.read().report() {
             Ok(report) => {
                 println!("{}", report);
             }

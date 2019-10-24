@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::os::raw::c_int;
-use std::sync::Mutex;
 
 use backtrace::Backtrace;
 use nix::sys::signal;
@@ -12,7 +11,7 @@ use crate::Report;
 use crate::Result;
 
 lazy_static::lazy_static! {
-    pub static ref PROFILER: Mutex<Profiler> = Mutex::new(Profiler::default());
+    pub static ref PROFILER: spin::RwLock<Profiler> = spin::RwLock::new(Profiler::default());
 }
 
 pub struct Profiler {
@@ -24,14 +23,14 @@ pub struct Profiler {
 }
 
 pub struct ProfilerGuard<'a> {
-    profiler: &'a Mutex<Profiler>,
+    profiler: &'a spin::RwLock<Profiler>,
 }
 
 impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
-        match self.profiler.lock().unwrap().stop() {
-            Ok(()) => {},
-            Err(err) => log::error!("error while stopping profiler {}", err)
+        match self.profiler.write().stop() {
+            Ok(()) => {}
+            Err(err) => log::error!("error while stopping profiler {}", err),
         };
     }
 }
@@ -39,11 +38,20 @@ impl<'a> Drop for ProfilerGuard<'a> {
 extern "C" fn perf_signal_handler(_signal: c_int) {
     let bt = Backtrace::new();
 
-    match PROFILER.try_lock() {
-        Ok(mut guard) => {
-            guard.sample(bt);
-        }
-        Err(_) => {}
+    match PROFILER.try_write() {
+        Some(mut guard) => match guard.ignore_signal_handler() {
+            Ok(()) => {
+                guard.sample(bt);
+                match guard.register_signal_handler() {
+                    Ok(()) => {}
+                    Err(err) => log::error!("fail to reset signal handler {}", err)
+                }
+            }
+            Err(err) => {
+                log::error!("fail to ignore signal handler {}", err);
+            }
+        },
+        None => {}
     };
 }
 
@@ -108,6 +116,13 @@ impl Profiler {
 
     fn register_signal_handler(&self) -> Result<()> {
         let handler = signal::SigHandler::Handler(perf_signal_handler);
+        unsafe { signal::signal(signal::SIGPROF, handler) }?;
+
+        Ok(())
+    }
+
+    pub fn ignore_signal_handler(&self) -> Result<()> {
+        let handler = signal::SigHandler::SigIgn;
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
 
         Ok(())

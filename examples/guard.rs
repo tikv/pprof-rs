@@ -75,11 +75,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    let guard = rsperftools::PROFILER
-        .lock()
-        .unwrap()
-        .start_with_guard(100)
-        .unwrap();
+    let guard = rsperftools::PROFILER.write().start_with_guard(100).unwrap();
 
     let mut v = 0;
 
@@ -101,7 +97,7 @@ fn main() {
 
     println!("Prime numbers: {}", v);
 
-    match rsperftools::PROFILER.lock().unwrap().report() {
+    match rsperftools::PROFILER.read().report() {
         Ok(report) => {
             println!("report: {}", &report);
         }
@@ -112,7 +108,7 @@ fn main() {
 
     println!("Now profiler has been stopped");
 
-    match rsperftools::PROFILER.lock().unwrap().report() {
+    match rsperftools::PROFILER.read().report() {
         Ok(report) => {
             println!("report: {}", &report);
         }
