@@ -60,6 +60,7 @@ impl Default for Profiler {
 
 impl Profiler {
     pub fn start(&mut self, frequency: c_int) -> Result<()> {
+        log::info!("starting cpu profiler");
         if self.running {
             Err(Error::Running)
         } else {
@@ -93,6 +94,7 @@ impl Profiler {
     }
 
     pub fn stop(&mut self) -> Result<()> {
+        log::info!("stopping cpu profiler");
         if self.running {
             self.stop_timer();
             self.unregister_signal_handler()?;
