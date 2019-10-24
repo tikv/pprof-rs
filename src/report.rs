@@ -28,34 +28,46 @@ use std::io::Write;
 
 #[cfg(feature = "flamegraph")]
 impl Report {
-    pub fn flamegraph<W>(&self, writer: W) -> crate::Result<()> where W: Write {
+    pub fn flamegraph<W>(&self, writer: W) -> crate::Result<()>
+    where
+        W: Write,
+    {
         use inferno::flamegraph;
 
-        let lines: Vec<String> = self.data.iter().map(|(key, value)| {
-            let mut line = String::new();
+        let lines: Vec<String> = self
+            .data
+            .iter()
+            .map(|(key, value)| {
+                let mut line = String::new();
 
-            for frame in key.frames.iter().rev() {
-                for symbol in frame.symbols().iter().rev() {
-                    match symbol.name() {
-                        Some(name) => {
-                            line.push_str(&format!("{}/", name));
-                        }
-                        None => {
-                            line.push_str("UnknownSymbol/");
+                for frame in key.frames.iter().rev() {
+                    for symbol in frame.symbols().iter().rev() {
+                        match symbol.name() {
+                            Some(name) => {
+                                line.push_str(&format!("{}/", name));
+                            }
+                            None => {
+                                line.push_str("UnknownSymbol/");
+                            }
                         }
                     }
+                    line.pop().unwrap_or_default();
+                    line.push(';');
                 }
+
                 line.pop().unwrap_or_default();
-                line.push(';');
-            }
+                line.push_str(&format!(" {}", value));
 
-            line.pop().unwrap_or_default();
-            line.push_str(&format!(" {}", value));
-
-            line
-        }).collect();
+                line
+            })
+            .collect();
         if lines.len() > 0 {
-            flamegraph::from_lines(&mut flamegraph::Options::default(), lines.iter().map(|s| &**s), writer).unwrap(); // TODO: handle this error
+            flamegraph::from_lines(
+                &mut flamegraph::Options::default(),
+                lines.iter().map(|s| &**s),
+                writer,
+            )
+            .unwrap(); // TODO: handle this error
         }
 
         Ok(())

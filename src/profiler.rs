@@ -5,11 +5,11 @@ use std::sync::Mutex;
 use backtrace::Backtrace;
 use nix::sys::signal;
 
-use crate::Report;
-use crate::Result;
-use crate::Error;
 use crate::frames::Frames;
 use crate::timer::Timer;
+use crate::Error;
+use crate::Report;
+use crate::Result;
 
 lazy_static::lazy_static! {
     pub static ref PROFILER: Mutex<Profiler> = Mutex::new(Profiler::default());
@@ -21,6 +21,19 @@ pub struct Profiler {
     sample_counter: i32,
 
     pub running: bool,
+}
+
+pub struct ProfilerGuard<'a> {
+    profiler: &'a Mutex<Profiler>,
+}
+
+impl<'a> Drop for ProfilerGuard<'a> {
+    fn drop(&mut self) {
+        match self.profiler.lock().unwrap().stop() {
+            Ok(()) => {},
+            Err(err) => log::error!("error while stopping profiler {}", err)
+        };
+    }
 }
 
 extern "C" fn perf_signal_handler(_signal: c_int) {
@@ -58,11 +71,20 @@ impl Profiler {
         }
     }
 
+    pub fn start_with_guard(&mut self, frequency: c_int) -> Result<ProfilerGuard<'static>> {
+        match self.start(frequency) {
+            Ok(()) => Ok(ProfilerGuard {
+                profiler: &PROFILER,
+            }),
+            Err(err) => Err(err),
+        }
+    }
+
     pub fn report(&self) -> Result<Report> {
         Ok(Report::from(&self.data))
     }
 
-    pub fn init(&mut self) -> Result<()> {
+    fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
         self.data = HashMap::new();
         self.running = false;
