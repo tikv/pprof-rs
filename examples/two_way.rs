@@ -54,6 +54,8 @@ fn main() {
             }
         }
 
+        println!("Prime numbers: {}", v);
+
         match rsperftools::PROFILER.read().report() {
             Ok(report) => {
                 println!("{}", report);
