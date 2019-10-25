@@ -15,7 +15,6 @@ lazy_static::lazy_static! {
 }
 
 pub struct Profiler {
-    timer: Option<Timer>,
     data: HashMap<UnresolvedFrames, i32>,
     sample_counter: i32,
 
@@ -24,6 +23,23 @@ pub struct Profiler {
 
 pub struct ProfilerGuard<'a> {
     profiler: &'a spin::RwLock<Profiler>,
+    _timer: Timer,
+}
+
+impl ProfilerGuard<'_> {
+    pub fn new(frequency: c_int) -> Result<ProfilerGuard<'static>> {
+        match PROFILER.write().start() {
+            Ok(()) => Ok(ProfilerGuard::<'static> {
+                profiler: &PROFILER,
+                _timer: Timer::new(frequency),
+            }),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn report(&self) -> Result<Report> {
+        self.profiler.read().report()
+    }
 }
 
 impl<'a> Drop for ProfilerGuard<'a> {
@@ -64,7 +80,6 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
 impl Default for Profiler {
     fn default() -> Self {
         return Profiler {
-            timer: None,
             data: HashMap::new(),
             sample_counter: 0,
             running: false,
@@ -73,25 +88,15 @@ impl Default for Profiler {
 }
 
 impl Profiler {
-    pub fn start(&mut self, frequency: c_int) -> Result<()> {
+    pub fn start(&mut self) -> Result<()> {
         log::info!("starting cpu profiler");
         if self.running {
             Err(Error::Running)
         } else {
             self.register_signal_handler()?;
-            self.start_timer(frequency);
             self.running = true;
 
             Ok(())
-        }
-    }
-
-    pub fn start_with_guard(&mut self, frequency: c_int) -> Result<ProfilerGuard<'static>> {
-        match self.start(frequency) {
-            Ok(()) => Ok(ProfilerGuard {
-                profiler: &PROFILER,
-            }),
-            Err(err) => Err(err),
         }
     }
 
@@ -113,7 +118,6 @@ impl Profiler {
     pub fn stop(&mut self) -> Result<()> {
         log::info!("stopping cpu profiler");
         if self.running {
-            self.stop_timer();
             self.unregister_signal_handler()?;
             self.init()?;
 
@@ -142,14 +146,6 @@ impl Profiler {
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
 
         Ok(())
-    }
-
-    fn start_timer(&mut self, frequency: c_int) {
-        self.timer.replace(Timer::new(frequency));
-    }
-
-    fn stop_timer(&mut self) {
-        self.timer.take();
     }
 
     pub fn sample(&mut self, backtrace: Vec<Frame>) {

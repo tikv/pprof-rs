@@ -76,7 +76,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    rsperftools::PROFILER.write().start(100).unwrap();
+    let guard = rsperftools::ProfilerGuard::new(100).unwrap();
 
     let mut v = 0;
 
@@ -98,7 +98,7 @@ fn main() {
 
     println!("Prime numbers: {}", v);
 
-    match rsperftools::PROFILER.read().report() {
+    match guard.report() {
         Ok(report) => {
             let file = File::create("flamegraph.svg").unwrap();
             report.flamegraph(file).unwrap();

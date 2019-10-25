@@ -8,5 +8,5 @@ mod report;
 pub mod timer;
 
 pub use error::*;
-pub use profiler::PROFILER;
+pub use profiler::{ProfilerGuard, PROFILER};
 pub use report::*;
