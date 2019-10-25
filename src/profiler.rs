@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::os::raw::c_int;
 
-use backtrace::Backtrace;
+use backtrace::Frame;
 use nix::sys::signal;
 
-use crate::frames::Frames;
+use crate::frames::UnresolvedFrames;
 use crate::timer::Timer;
 use crate::Error;
 use crate::Report;
@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 
 pub struct Profiler {
     timer: Option<Timer>,
-    data: HashMap<Frames, i32>,
+    data: HashMap<UnresolvedFrames, i32>,
     sample_counter: i32,
 
     pub running: bool,
@@ -36,7 +36,13 @@ impl<'a> Drop for ProfilerGuard<'a> {
 }
 
 extern "C" fn perf_signal_handler(_signal: c_int) {
-    let bt = Backtrace::new();
+    let mut bt = Vec::new();
+
+    backtrace::trace(|frame| {
+        bt.push(frame.clone());
+
+        true
+    });
 
     match PROFILER.try_write() {
         Some(mut guard) => match guard.ignore_signal_handler() {
@@ -44,7 +50,7 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
                 guard.sample(bt);
                 match guard.register_signal_handler() {
                     Ok(()) => {}
-                    Err(err) => log::error!("fail to reset signal handler {}", err)
+                    Err(err) => log::error!("fail to reset signal handler {}", err),
                 }
             }
             Err(err) => {
@@ -90,7 +96,10 @@ impl Profiler {
     }
 
     pub fn report(&self) -> Result<Report> {
-        Ok(Report::from(&self.data))
+        self.ignore_signal_handler()?;
+        let report = Report::from(&self.data);
+        self.register_signal_handler()?;
+        Ok(report)
     }
 
     fn init(&mut self) -> Result<()> {
@@ -143,8 +152,8 @@ impl Profiler {
         self.timer.take();
     }
 
-    pub fn sample(&mut self, backtrace: Backtrace) {
-        let frames = Frames::from(backtrace);
+    pub fn sample(&mut self, backtrace: Vec<Frame>) {
+        let frames = UnresolvedFrames::from(backtrace);
         self.sample_counter += 1;
 
         match self.data.get(&frames) {

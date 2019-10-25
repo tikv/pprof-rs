@@ -18,6 +18,7 @@ quick-error = "1.2.2"
 inferno = { version = "0.9.0", optional = true }
 log = "0.4"
 spin = "0.5.2"
+rustc-demangle = "0.1.16"
 
 [[example]]
 name = "flamegraph"

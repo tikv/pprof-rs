@@ -1,4 +1,4 @@
-use crate::frames::Frames;
+use crate::frames::{Frames, UnresolvedFrames};
 use std::collections::HashMap;
 use std::fmt::{Display, Error as FmtError, Formatter};
 
@@ -6,9 +6,13 @@ pub struct Report {
     data: HashMap<Frames, i32>,
 }
 
-impl From<&HashMap<Frames, i32>> for Report {
-    fn from(data: &HashMap<Frames, i32>) -> Self {
-        Self { data: data.clone() }
+impl From<&HashMap<UnresolvedFrames, i32>> for Report {
+    fn from(data: &HashMap<UnresolvedFrames, i32>) -> Self {
+        let data = data
+            .iter()
+            .map(|(key, value)| (Frames::from(key.clone()), *value))
+            .collect();
+        Self { data }
     }
 }
 
@@ -41,15 +45,8 @@ impl Report {
                 let mut line = String::new();
 
                 for frame in key.frames.iter().rev() {
-                    for symbol in frame.symbols().iter().rev() {
-                        match symbol.name() {
-                            Some(name) => {
-                                line.push_str(&format!("{}/", name));
-                            }
-                            None => {
-                                line.push_str("UnknownSymbol/");
-                            }
-                        }
+                    for symbol in frame.iter().rev() {
+                        line.push_str(&format!("{}/", symbol));
                     }
                     line.pop().unwrap_or_default();
                     line.push(';');

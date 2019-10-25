@@ -80,7 +80,7 @@ fn main() {
 
     let mut v = 0;
 
-    for i in 2..500000 {
+    for i in 2..5000000 {
         if i % 4 == 0 {
             if is_prime_number1(i, &prime_numbers) {
                 v += 1;
