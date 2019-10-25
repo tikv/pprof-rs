@@ -51,6 +51,8 @@ pub(crate) struct Symbol {
     filename: Option<PathBuf>,
 }
 
+unsafe impl Send for Symbol {}
+
 impl From<&backtrace::Symbol> for Symbol {
     fn from(symbol: &backtrace::Symbol) -> Self {
         Symbol {
