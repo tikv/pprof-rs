@@ -5,14 +5,14 @@ use std::iter::Iterator;
 
 #[derive(Debug)]
 pub struct Report {
-    data: HashMap<Frames, i32>,
+    data: HashMap<Frames, Vec<u128>>,
 }
 
-impl From<&HashMap<UnresolvedFrames, i32>> for Report {
-    fn from(data: &HashMap<UnresolvedFrames, i32>) -> Self {
+impl From<&HashMap<UnresolvedFrames, Vec<u128>>> for Report {
+    fn from(data: &HashMap<UnresolvedFrames, Vec<u128>>) -> Self {
         let data = data
             .iter()
-            .map(|(key, value)| (Frames::from(key.clone()), *value))
+            .map(|(key, value)| (Frames::from(key.clone()), value.clone()))
             .collect();
         Self { data }
     }
@@ -21,7 +21,7 @@ impl From<&HashMap<UnresolvedFrames, i32>> for Report {
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter) -> Result<(), FmtError> {
         for (key, val) in self.data.iter() {
-            write!(f, "{} {}", key, val)?;
+            write!(f, "{} {:?}", key, val)?;
             writeln!(f)?;
         }
 
@@ -30,7 +30,7 @@ impl Display for Report {
 }
 
 impl Report {
-    pub fn list(&self) -> Vec<(&Frames, &i32)> {
+    pub fn list(&self) -> Vec<(&Frames, &Vec<u128>)> {
         self.data.iter().collect()
     }
 }

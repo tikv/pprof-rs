@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::os::raw::c_int;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use backtrace::Frame;
 use nix::sys::signal;
@@ -15,7 +16,7 @@ lazy_static::lazy_static! {
 }
 
 pub struct Profiler {
-    data: HashMap<UnresolvedFrames, i32>,
+    data: HashMap<UnresolvedFrames, Vec<u128>>,
     sample_counter: i32,
 
     pub running: bool,
@@ -151,14 +152,17 @@ impl Profiler {
     pub fn sample(&mut self, backtrace: Vec<Frame>) {
         let frames = UnresolvedFrames::from(backtrace);
         self.sample_counter += 1;
+        let timestamp = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(n) => n.as_millis(),
+            Err(_) => 0,
+        };
 
-        match self.data.get(&frames) {
-            Some(count) => {
-                let count = count.clone();
-                self.data.insert(frames, count + 1);
+        match self.data.get_mut(&frames) {
+            Some(time_list) => {
+                time_list.push(timestamp);
             }
             None => {
-                self.data.insert(frames, 1);
+                self.data.insert(frames, vec![timestamp]);
             }
         };
     }

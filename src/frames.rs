@@ -106,7 +106,13 @@ impl Serialize for Symbol {
         S: Serializer,
     {
         let mut symbol = serializer.serialize_struct("Symbol", 4)?;
-        symbol.serialize_field("name", &self.name)?;
+        symbol.serialize_field(
+            "name",
+            &match self.name {
+                Some(ref name) => Some(String::from_utf8_lossy(name)),
+                None => None,
+            },
+        )?;
         symbol.serialize_field(
             "addr",
             &match self.addr {
