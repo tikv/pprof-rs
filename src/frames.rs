@@ -121,7 +121,7 @@ impl Serialize for Symbol {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct Frames {
+pub struct Frames {
     pub(crate) frames: Vec<Vec<Symbol>>,
 }
 

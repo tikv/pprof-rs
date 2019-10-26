@@ -1,9 +1,9 @@
 use crate::frames::{Frames, UnresolvedFrames};
-use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::{Display, Error as FmtError, Formatter};
+use std::iter::Iterator;
 
-#[derive(Serialize, Debug)]
+#[derive(Debug)]
 pub struct Report {
     data: HashMap<Frames, i32>,
 }
@@ -26,6 +26,12 @@ impl Display for Report {
         }
 
         Ok(())
+    }
+}
+
+impl Report {
+    pub fn list(&self) -> Vec<(&Frames, &i32)> {
+        self.data.iter().collect()
     }
 }
 
