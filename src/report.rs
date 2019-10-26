@@ -61,7 +61,7 @@ impl Report {
                 }
 
                 line.pop().unwrap_or_default();
-                line.push_str(&format!(" {}", value));
+                line.push_str(&format!(" {}", value.len()));
 
                 line
             })
