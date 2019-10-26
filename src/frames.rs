@@ -1,5 +1,7 @@
 use backtrace::Frame;
 use rustc_demangle::demangle;
+use serde::ser::{SerializeStruct, Serializer};
+use serde::Serialize;
 use std::fmt::{Display, Error as FmtError, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
@@ -98,7 +100,27 @@ impl PartialEq for Symbol {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Serialize for Symbol {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut symbol = serializer.serialize_struct("Symbol", 4)?;
+        symbol.serialize_field("name", &self.name)?;
+        symbol.serialize_field(
+            "addr",
+            &match self.addr {
+                Some(addr) => Some(addr as u64),
+                None => None,
+            },
+        )?;
+        symbol.serialize_field("lineno", &self.lineno)?;
+        symbol.serialize_field("filename", &self.filename)?;
+        symbol.end()
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct Frames {
     pub(crate) frames: Vec<Vec<Symbol>>,
 }

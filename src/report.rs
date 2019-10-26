@@ -1,7 +1,9 @@
 use crate::frames::{Frames, UnresolvedFrames};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::{Display, Error as FmtError, Formatter};
 
+#[derive(Serialize, Debug)]
 pub struct Report {
     data: HashMap<Frames, i32>,
 }
