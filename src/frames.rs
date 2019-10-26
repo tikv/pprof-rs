@@ -109,7 +109,7 @@ impl Serialize for Symbol {
         symbol.serialize_field(
             "name",
             &match self.name {
-                Some(ref name) => Some(String::from_utf8_lossy(name)),
+                Some(ref name) => Some(demangle(&String::from_utf8_lossy(name)).to_string()),
                 None => None,
             },
         )?;
