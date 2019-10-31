@@ -80,25 +80,23 @@ fn main() {
 
     let mut v = 0;
 
-    for _ in 0..10 {
-        for i in 2..5000000 {
-            if i % 4 == 0 {
-                if is_prime_number1(i, &prime_numbers) {
-                    v += 1;
-                }
-            } else if i % 4 == 1 {
-                if is_prime_number2(i, &prime_numbers) {
-                    v += 1;
-                }
-            } else {
-                if is_prime_number3(i, &prime_numbers) {
-                    v += 1;
-                }
+    for i in 2..5000000 {
+        if i % 4 == 0 {
+            if is_prime_number1(i, &prime_numbers) {
+                v += 1;
+            }
+        } else if i % 4 == 1 {
+            if is_prime_number2(i, &prime_numbers) {
+                v += 1;
+            }
+        } else {
+            if is_prime_number3(i, &prime_numbers) {
+                v += 1;
             }
         }
-
-        println!("Prime numbers: {}", v);
     }
+
+    println!("Prime numbers: {}", v);
 
     match guard.report() {
         Ok(report) => {

@@ -1,6 +1,4 @@
 use rsperftools;
-use rsperftools::collector::{Collector, TempFdArray, Entry, StackHashCounter};
-use rsperftools::frames::UnresolvedFrames;
 
 #[inline(never)]
 fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {

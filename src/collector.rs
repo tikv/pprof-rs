@@ -178,7 +178,8 @@ impl<T> TempFdArray<T> {
         let length = file_vec.len() / std::mem::size_of::<T>();
         let ts = unsafe { std::slice::from_raw_parts(file_vec.as_ptr() as *const T, length)};
 
-        Ok(self.buffer.iter().chain(ts.iter()))
+        let buf_len = self.buffer_index;
+        Ok(self.buffer[0..buf_len].iter().chain(ts.iter()))
     }
 }
 
