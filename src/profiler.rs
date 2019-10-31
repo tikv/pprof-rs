@@ -3,12 +3,12 @@ use std::os::raw::c_int;
 use backtrace::Frame;
 use nix::sys::signal;
 
+use crate::collector::Collector;
 use crate::frames::UnresolvedFrames;
 use crate::timer::Timer;
-use crate::{Error, MAX_DEPTH};
 use crate::Report;
 use crate::Result;
-use crate::collector::Collector;
+use crate::{Error, MAX_DEPTH};
 
 lazy_static::lazy_static! {
     pub static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
@@ -32,16 +32,14 @@ impl ProfilerGuard<'_> {
             Err(err) => {
                 log::error!("Error in creating profiler: {}", err);
                 Err(Error::CreatingError)
-            },
-            Ok(profiler) => {
-                match profiler.start() {
-                    Ok(()) => Ok(ProfilerGuard::<'static> {
-                        profiler: &PROFILER,
-                        _timer: Timer::new(frequency),
-                    }),
-                    Err(err) => Err(err),
-                }
             }
+            Ok(profiler) => match profiler.start() {
+                Ok(()) => Ok(ProfilerGuard::<'static> {
+                    profiler: &PROFILER,
+                    _timer: Timer::new(frequency),
+                }),
+                Err(err) => Err(err),
+            },
         }
     }
 
@@ -50,10 +48,8 @@ impl ProfilerGuard<'_> {
             Err(err) => {
                 log::error!("Error in creating profiler: {}", err);
                 Err(Error::CreatingError)
-            },
-            Ok(profiler) => {
-                profiler.report()
             }
+            Ok(profiler) => profiler.report(),
         }
     }
 }
@@ -62,12 +58,10 @@ impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
         match self.profiler.write().as_mut() {
             Err(_) => {}
-            Ok(profiler) => {
-                match profiler.stop() {
-                    Ok(()) => {}
-                    Err(err) => log::error!("error while stopping profiler {}", err),
-                }
-            }
+            Ok(profiler) => match profiler.stop() {
+                Ok(()) => {}
+                Err(err) => log::error!("error while stopping profiler {}", err),
+            },
         }
     }
 }
@@ -86,15 +80,11 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
         }
     });
 
-    match PROFILER.try_write() {
-        Some(mut guard) => {
-            match guard.as_mut() {
-                Ok(profiler) => profiler.sample(&bt[0..index]),
-                Err(_) => {}
-            }
-        },
-        None => {}
-    };
+    if let Some(mut guard) = PROFILER.try_write() {
+        if let Ok(profiler) = guard.as_mut() {
+            profiler.sample(&bt[0..index])
+        }
+    }
 }
 
 impl Profiler {
@@ -173,9 +163,8 @@ impl Profiler {
         let frames = UnresolvedFrames::new(backtrace);
         self.sample_counter += 1;
 
-        match self.data.add(frames) {
-            Ok(()) => {},
-            Err(_) => {}
+        if let Ok(()) = self.data.add(frames) {
+
         }
     }
 }

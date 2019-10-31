@@ -43,7 +43,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-//    println!("{}", std::mem::size_of::<Collector<UnresolvedFrames>>());
+    //    println!("{}", std::mem::size_of::<Collector<UnresolvedFrames>>());
     let guard = rsperftools::ProfilerGuard::new(100).unwrap();
 
     loop {

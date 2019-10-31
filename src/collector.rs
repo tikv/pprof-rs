@@ -1,11 +1,11 @@
-use std::hash::{Hash, Hasher};
+use crate::frames::UnresolvedFrames;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
+use std::hash::{Hash, Hasher};
+use std::io::{Read, Write};
 use std::marker::PhantomData;
-use std::io::{Write, Read};
-use crate::frames::UnresolvedFrames;
 
-pub const BUCKETS: usize = 1 << 18 / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUCKETS: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
 pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
@@ -23,7 +23,7 @@ impl<T: Eq> Default for Bucket<T> {
     fn default() -> Bucket<T> {
         Self {
             length: 0,
-            entries: unsafe { std::mem::MaybeUninit::uninit().assume_init() }
+            entries: unsafe { std::mem::MaybeUninit::uninit().assume_init() },
         }
     }
 }
@@ -40,7 +40,7 @@ impl<T: Eq> Bucket<T> {
 
         if done {
             None
-        } else  if self.length < BUCKETS_ASSOCIATIVITY {
+        } else if self.length < BUCKETS_ASSOCIATIVITY {
             let ele = &mut self.entries[self.length];
             ele.item = key;
             ele.count = 1;
@@ -94,13 +94,13 @@ impl<'a, T> Iterator for BucketIterator<'a, T> {
 }
 
 pub struct StackHashCounter<T: Hash + Eq> {
-    buckets: [Bucket<T>; BUCKETS]
+    buckets: [Bucket<T>; BUCKETS],
 }
 
 impl<T: Hash + Eq> Default for StackHashCounter<T> {
     fn default() -> Self {
         let mut counter = Self {
-            buckets: unsafe { std::mem::MaybeUninit::uninit().assume_init() }
+            buckets: unsafe { std::mem::MaybeUninit::uninit().assume_init() },
         };
         counter.buckets.iter_mut().for_each(|item| {
             *item = Bucket::<T>::default();
@@ -125,7 +125,8 @@ impl<T: Hash + Eq> StackHashCounter<T> {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Entry<T>> {
-        let mut iter: Box<dyn Iterator<Item = &Entry<T>>> = Box::new(self.buckets[0].iter().chain(std::iter::empty()));
+        let mut iter: Box<dyn Iterator<Item = &Entry<T>>> =
+            Box::new(self.buckets[0].iter().chain(std::iter::empty()));
         for bucket in self.buckets[1..].iter() {
             iter = Box::new(iter.chain(bucket.iter()));
         }
@@ -154,13 +155,18 @@ impl<T> TempFdArray<T> {
 
     fn flush_buffer(&mut self) -> std::io::Result<()> {
         self.buffer_index = 0;
-        let buf = unsafe { std::slice::from_raw_parts(self.buffer.as_ptr() as *const u8, BUFFER_LENGTH * std::mem::size_of::<T>())};
+        let buf = unsafe {
+            std::slice::from_raw_parts(
+                self.buffer.as_ptr() as *const u8,
+                BUFFER_LENGTH * std::mem::size_of::<T>(),
+            )
+        };
         self.file.write_all(buf)?;
 
         Ok(())
     }
 
-    fn push(&mut self, entry: T) -> std::io::Result<()>  {
+    fn push(&mut self, entry: T) -> std::io::Result<()> {
         if self.buffer_index >= BUFFER_LENGTH {
             self.flush_buffer()?;
         }
@@ -176,7 +182,7 @@ impl<T> TempFdArray<T> {
         self.file.read_to_end(&mut file_vec)?;
 
         let length = file_vec.len() / std::mem::size_of::<T>();
-        let ts = unsafe { std::slice::from_raw_parts(file_vec.as_ptr() as *const T, length)};
+        let ts = unsafe { std::slice::from_raw_parts(file_vec.as_ptr() as *const T, length) };
 
         let buf_len = self.buffer_index;
         Ok(self.buffer[0..buf_len].iter().chain(ts.iter()))
@@ -212,7 +218,7 @@ impl<T: Hash + Eq> Collector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{BTreeMap};
+    use std::collections::BTreeMap;
 
     #[test]
     fn stack_hash_counter() {
@@ -236,10 +242,8 @@ mod tests {
         match hashmap.get_mut(&entry.item) {
             None => {
                 hashmap.insert(entry.item, entry.count);
-            },
-            Some(count) => {
-                *count += entry.count
             }
+            Some(count) => *count += entry.count,
         }
     }
 
@@ -248,10 +252,10 @@ mod tests {
         let mut stack_hash_counter = StackHashCounter::<usize>::default();
         let mut real_map = BTreeMap::new();
 
-        for item in 0..(1 << 10)*4 {
+        for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
                 match stack_hash_counter.add(item) {
-                    None => {},
+                    None => {}
                     Some(evict) => {
                         add_map(&mut real_map, &evict);
                     }
@@ -263,7 +267,7 @@ mod tests {
             add_map(&mut real_map, &entry);
         });
 
-        for item in 0..(1 << 10)*4 {
+        for item in 0..(1 << 10) * 4 {
             let count = item % 4;
             match real_map.get(&item) {
                 Some(item) => {
@@ -281,7 +285,7 @@ mod tests {
         let mut collector = Collector::new().unwrap();
         let mut real_map = BTreeMap::new();
 
-        for item in 0..(1 << 10)*4 {
+        for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
                 collector.add(item);
             }
@@ -291,7 +295,7 @@ mod tests {
             add_map(&mut real_map, &entry);
         });
 
-        for item in 0..(1 << 10)*4 {
+        for item in 0..(1 << 10) * 4 {
             let count = item % 4;
             match real_map.get(&item) {
                 Some(item) => {

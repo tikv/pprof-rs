@@ -22,12 +22,12 @@ extern "C" {
 const ITIMER_PROF: c_int = 2;
 
 pub struct Timer {
-    frequency: c_int,
+    _frequency: c_int,
 }
 
 impl Timer {
     pub fn new(frequency: c_int) -> Timer {
-        let interval = 1e6 as i64 / frequency as i64;
+        let interval = 1e6 as i64 / i64::from(frequency);
         let it_interval = Timeval {
             tv_sec: interval / 1e6 as i64,
             tv_usec: interval % 1e6 as i64,
@@ -45,11 +45,7 @@ impl Timer {
             )
         };
 
-        return Timer { frequency };
-    }
-
-    pub fn frequency(&self) -> c_int {
-        self.frequency
+        Timer { _frequency: frequency }
     }
 }
 

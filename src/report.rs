@@ -33,9 +33,7 @@ impl Report {
             }
         });
 
-        Ok(Self {
-            data: hash_map,
-        })
+        Ok(Self { data: hash_map })
     }
 }
 
@@ -50,9 +48,9 @@ impl Display for Report {
     }
 }
 
+use crate::collector::Collector;
 #[cfg(feature = "flamegraph")]
 use std::io::Write;
-use crate::collector::Collector;
 
 #[cfg(feature = "flamegraph")]
 impl Report {

@@ -1,6 +1,6 @@
 use backtrace::Frame;
 use rustc_demangle::demangle;
-use std::fmt::{Display, Formatter, Debug};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
@@ -9,7 +9,7 @@ use crate::MAX_DEPTH;
 
 #[derive(Debug, Clone)]
 pub struct UnresolvedFramesSlice<'a> {
-    pub frames: &'a [Frame]
+    pub frames: &'a [Frame],
 }
 
 pub struct UnresolvedFrames {
@@ -32,12 +32,10 @@ impl Debug for UnresolvedFrames {
 impl UnresolvedFrames {
     pub fn new(bt: &[Frame]) -> Self {
         let depth = bt.len();
-        let mut frames: [Frame; MAX_DEPTH] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut frames: [Frame; MAX_DEPTH] =
+            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
         frames[0..depth].clone_from_slice(bt);
-        Self {
-            frames,
-            depth,
-        }
+        Self { frames, depth }
     }
 
     fn slice(&self) -> UnresolvedFramesSlice {
@@ -119,10 +117,7 @@ impl PartialEq for Symbol {
                 Some(other_name) => name == other_name,
                 None => false,
             },
-            None => match &other.name {
-                Some(_) => false,
-                None => true,
-            },
+            None => other.name.is_none(),
         }
     }
 }
