@@ -6,6 +6,12 @@ quick_error! {
             cause(err)
             description(err.description())
         }
+        IoError(err: std::io::Error) {
+            from()
+            cause(err)
+            description(err.description())
+        }
+        CreatingError
         Running
         NotRunning
     }

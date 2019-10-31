@@ -1,4 +1,6 @@
 use rsperftools;
+use rsperftools::collector::{Collector, TempFdArray, Entry, StackHashCounter};
+use rsperftools::frames::UnresolvedFrames;
 
 #[inline(never)]
 fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {
@@ -43,6 +45,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
+//    println!("{}", std::mem::size_of::<Collector<UnresolvedFrames>>());
     let guard = rsperftools::ProfilerGuard::new(100).unwrap();
 
     loop {

@@ -1,23 +1,46 @@
 use crate::frames::{Frames, UnresolvedFrames};
 use std::collections::HashMap;
-use std::fmt::{Display, Error as FmtError, Formatter};
+use std::fmt::{Display, Formatter};
+
+use crate::Result;
 
 pub struct Report {
-    data: HashMap<Frames, i32>,
+    data: HashMap<Frames, usize>,
 }
 
-impl From<&HashMap<UnresolvedFrames, i32>> for Report {
-    fn from(data: &HashMap<UnresolvedFrames, i32>) -> Self {
-        let data = data
-            .iter()
-            .map(|(key, value)| (Frames::from(key.clone()), *value))
-            .collect();
-        Self { data }
+impl Report {
+    pub(crate) fn from_collector(data: &mut Collector<UnresolvedFrames>) -> Result<Self> {
+        let mut hash_map = HashMap::new();
+
+        data.iter()?.for_each(|entry| {
+            let count = entry.count;
+            if count > 0 {
+                let key = Frames::from(entry.item.clone());
+
+                match hash_map.get_mut(&key) {
+                    Some(value) => {
+                        *value += count;
+                    }
+                    None => {
+                        match hash_map.insert(key, count) {
+                            None => {}
+                            Some(_) => {
+                                unreachable!();
+                            }
+                        };
+                    }
+                }
+            }
+        });
+
+        Ok(Self {
+            data: hash_map,
+        })
     }
 }
 
 impl Display for Report {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), FmtError> {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for (key, val) in self.data.iter() {
             write!(f, "{} {}", key, val)?;
             writeln!(f)?;
@@ -29,10 +52,11 @@ impl Display for Report {
 
 #[cfg(feature = "flamegraph")]
 use std::io::Write;
+use crate::collector::Collector;
 
 #[cfg(feature = "flamegraph")]
 impl Report {
-    pub fn flamegraph<W>(&self, writer: W) -> crate::Result<()>
+    pub fn flamegraph<W>(&self, writer: W) -> Result<()>
     where
         W: Write,
     {

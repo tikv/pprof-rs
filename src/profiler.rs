@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::os::raw::c_int;
 
 use backtrace::Frame;
@@ -6,84 +5,105 @@ use nix::sys::signal;
 
 use crate::frames::UnresolvedFrames;
 use crate::timer::Timer;
-use crate::Error;
+use crate::{Error, MAX_DEPTH};
 use crate::Report;
 use crate::Result;
+use crate::collector::Collector;
 
 lazy_static::lazy_static! {
-    pub static ref PROFILER: spin::RwLock<Profiler> = spin::RwLock::new(Profiler::default());
+    pub static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
 }
 
 pub struct Profiler {
-    data: HashMap<UnresolvedFrames, i32>,
+    data: Collector<UnresolvedFrames>,
     sample_counter: i32,
 
     pub running: bool,
 }
 
 pub struct ProfilerGuard<'a> {
-    profiler: &'a spin::RwLock<Profiler>,
+    profiler: &'a spin::RwLock<Result<Profiler>>,
     _timer: Timer,
 }
 
 impl ProfilerGuard<'_> {
     pub fn new(frequency: c_int) -> Result<ProfilerGuard<'static>> {
-        match PROFILER.write().start() {
-            Ok(()) => Ok(ProfilerGuard::<'static> {
-                profiler: &PROFILER,
-                _timer: Timer::new(frequency),
-            }),
-            Err(err) => Err(err),
+        match PROFILER.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
+            },
+            Ok(profiler) => {
+                match profiler.start() {
+                    Ok(()) => Ok(ProfilerGuard::<'static> {
+                        profiler: &PROFILER,
+                        _timer: Timer::new(frequency),
+                    }),
+                    Err(err) => Err(err),
+                }
+            }
         }
     }
 
     pub fn report(&self) -> Result<Report> {
-        self.profiler.read().report()
+        match self.profiler.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
+            },
+            Ok(profiler) => {
+                profiler.report()
+            }
+        }
     }
 }
 
 impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
-        match self.profiler.write().stop() {
-            Ok(()) => {}
-            Err(err) => log::error!("error while stopping profiler {}", err),
-        };
+        match self.profiler.write().as_mut() {
+            Err(_) => {}
+            Ok(profiler) => {
+                match profiler.stop() {
+                    Ok(()) => {}
+                    Err(err) => log::error!("error while stopping profiler {}", err),
+                }
+            }
+        }
     }
 }
 
 extern "C" fn perf_signal_handler(_signal: c_int) {
-    let mut bt = Vec::new();
+    let mut bt: [Frame; MAX_DEPTH] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+    let mut index = 0;
 
     backtrace::trace(|frame| {
-        bt.push(frame.clone());
-
-        true
+        if index < MAX_DEPTH {
+            bt[index] = frame.clone();
+            index += 1;
+            true
+        } else {
+            false
+        }
     });
 
     match PROFILER.try_write() {
-        Some(mut guard) => match guard.ignore_signal_handler() {
-            Ok(()) => {
-                guard.sample(bt);
-                match guard.register_signal_handler() {
-                    Ok(()) => {}
-                    Err(err) => log::error!("fail to reset signal handler {}", err),
-                }
-            }
-            Err(err) => {
-                log::error!("fail to ignore signal handler {}", err);
+        Some(mut guard) => {
+            match guard.as_mut() {
+                Ok(profiler) => profiler.sample(&bt[0..index]),
+                Err(_) => {}
             }
         },
         None => {}
     };
 }
 
-impl Default for Profiler {
-    fn default() -> Self {
-        return Profiler {
-            data: HashMap::new(),
+impl Profiler {
+    fn new() -> Result<Self> {
+        Ok(Profiler {
+            data: Collector::new()?,
             sample_counter: 0,
             running: false,
-        };
+        })
     }
 }
 
@@ -100,16 +120,16 @@ impl Profiler {
         }
     }
 
-    pub fn report(&self) -> Result<Report> {
+    pub fn report(&mut self) -> Result<Report> {
         self.ignore_signal_handler()?;
-        let report = Report::from(&self.data);
+        let report = Report::from_collector(&mut self.data)?;
         self.register_signal_handler()?;
         Ok(report)
     }
 
     fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
-        self.data = HashMap::new();
+        self.data = Collector::new()?;
         self.running = false;
 
         Ok(())
@@ -148,18 +168,14 @@ impl Profiler {
         Ok(())
     }
 
-    pub fn sample(&mut self, backtrace: Vec<Frame>) {
-        let frames = UnresolvedFrames::from(backtrace);
+    // This function has to be AS-safe
+    pub fn sample(&mut self, backtrace: &[Frame]) {
+        let frames = UnresolvedFrames::new(backtrace);
         self.sample_counter += 1;
 
-        match self.data.get(&frames) {
-            Some(count) => {
-                let count = count.clone();
-                self.data.insert(frames, count + 1);
-            }
-            None => {
-                self.data.insert(frames, 1);
-            }
-        };
+        match self.data.add(frames) {
+            Ok(()) => {},
+            Err(_) => {}
+        }
     }
 }
