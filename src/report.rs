@@ -65,6 +65,12 @@ impl Report {
             .iter()
             .map(|(key, value)| {
                 let mut line = String::new();
+                if key.thread_name.len() > 0 {
+                    line.push_str(&key.thread_name);
+                } else {
+                    line.push_str(&format!("{:?}", key.thread_id));
+                }
+                line.push(';');
 
                 for frame in key.frames.iter().rev() {
                     for symbol in frame.iter().rev() {

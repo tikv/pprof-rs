@@ -9,6 +9,7 @@ use crate::timer::Timer;
 use crate::Report;
 use crate::Result;
 use crate::{Error, MAX_DEPTH};
+use std::thread::ThreadId;
 
 lazy_static::lazy_static! {
     pub static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
@@ -82,7 +83,8 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
 
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            profiler.sample(&bt[0..index])
+            let current_thread = std::thread::current();
+            profiler.sample(&bt[0..index], current_thread.name(), current_thread.id());
         }
     }
 }
@@ -159,12 +161,13 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame]) {
-        let frames = UnresolvedFrames::new(backtrace);
+    pub fn sample(&mut self, backtrace: &[Frame], thread_name: Option<&str>, thread_id: ThreadId) {
+        let frames = match thread_name {
+            Some(name) => UnresolvedFrames::new(backtrace, name.as_bytes(), thread_id),
+            None => UnresolvedFrames::new(backtrace, &[], thread_id),
+        };
         self.sample_counter += 1;
 
-        if let Ok(()) = self.data.add(frames) {
-
-        }
+        if let Ok(()) = self.data.add(frames) {}
     }
 }

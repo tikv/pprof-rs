@@ -45,7 +45,9 @@ impl Timer {
             )
         };
 
-        Timer { _frequency: frequency }
+        Timer {
+            _frequency: frequency,
+        }
     }
 }
 
