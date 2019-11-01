@@ -226,7 +226,7 @@ impl Display for Frames {
             }
         }
         write!(f, "THREAD: ")?;
-        if self.thread_name.len() > 0 {
+        if !self.thread_name.is_empty() {
             write!(f, "{}", self.thread_name)?;
         } else {
             write!(f, "{:?}", self.thread_id)?;
