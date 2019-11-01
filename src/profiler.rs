@@ -6,10 +6,9 @@ use nix::sys::signal;
 use crate::collector::Collector;
 use crate::frames::UnresolvedFrames;
 use crate::timer::Timer;
-use crate::ReportBuilder;
+use crate::{ReportBuilder, MAX_THREAD_NAME};
 use crate::Result;
 use crate::{Error, MAX_DEPTH};
-use std::thread::ThreadId;
 
 lazy_static::lazy_static! {
     pub static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
@@ -77,8 +76,15 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
 
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            let current_thread = std::thread::current();
-            profiler.sample(&bt[0..index], current_thread.name(), current_thread.id());
+            let current_thread = unsafe {libc::pthread_self()};
+            let mut name: [libc::c_char; MAX_THREAD_NAME] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+            let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
+            let ret = unsafe {libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME)};
+
+            if ret == 0 {
+                let name = unsafe {std::ffi::CStr::from_ptr(name_ptr)};
+                profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
+            }
         }
     }
 }
@@ -148,11 +154,8 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame], thread_name: Option<&str>, thread_id: ThreadId) {
-        let frames = match thread_name {
-            Some(name) => UnresolvedFrames::new(backtrace, name.as_bytes(), thread_id),
-            None => UnresolvedFrames::new(backtrace, &[], thread_id),
-        };
+    pub fn sample(&mut self, backtrace: &[Frame], thread_name: &[u8], thread_id: u64) {
+        let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 
         if let Ok(()) = self.data.add(frames) {}

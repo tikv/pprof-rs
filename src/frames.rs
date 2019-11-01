@@ -6,13 +6,12 @@ use std::os::raw::c_void;
 use std::path::PathBuf;
 
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
-use std::thread::ThreadId;
 
 #[derive(Debug, Clone)]
 pub struct UnresolvedFramesSlice<'a> {
     pub frames: &'a [Frame],
     pub thread_name: &'a [u8],
-    pub thread_id: ThreadId,
+    pub thread_id: u64,
 }
 
 pub struct UnresolvedFrames {
@@ -20,7 +19,7 @@ pub struct UnresolvedFrames {
     pub depth: usize,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
-    pub thread_id: ThreadId,
+    pub thread_id: u64,
 }
 
 impl Clone for UnresolvedFrames {
@@ -37,7 +36,7 @@ impl Debug for UnresolvedFrames {
 }
 
 impl UnresolvedFrames {
-    pub fn new(bt: &[Frame], tn: &[u8], thread_id: ThreadId) -> Self {
+    pub fn new(bt: &[Frame], tn: &[u8], thread_id: u64) -> Self {
         let depth = bt.len();
         let mut frames: [Frame; MAX_DEPTH] =
             unsafe { std::mem::MaybeUninit::uninit().assume_init() };
@@ -152,7 +151,7 @@ impl PartialEq for Symbol {
 pub struct Frames {
     pub frames: Vec<Vec<Symbol>>,
     pub thread_name: String,
-    pub thread_id: ThreadId,
+    pub thread_id: u64,
 }
 
 impl From<UnresolvedFrames> for Frames {
@@ -229,7 +228,7 @@ impl Display for Frames {
         if !self.thread_name.is_empty() {
             write!(f, "{}", self.thread_name)?;
         } else {
-            write!(f, "{:?}", self.thread_id)?;
+            write!(f, "ThreadId({})", self.thread_id)?;
         }
 
         Ok(())
