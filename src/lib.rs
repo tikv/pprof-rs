@@ -12,5 +12,6 @@ mod report;
 mod timer;
 
 pub use error::*;
+pub use frames::*;
 pub use profiler::{ProfilerGuard, PROFILER};
 pub use report::*;

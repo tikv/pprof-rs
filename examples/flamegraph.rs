@@ -98,7 +98,7 @@ fn main() {
 
     println!("Prime numbers: {}", v);
 
-    match guard.report() {
+    match guard.report().build() {
         Ok(report) => {
             let file = File::create("flamegraph.svg").unwrap();
             report.flamegraph(file).unwrap();

@@ -1,5 +1,4 @@
 use rsperftools;
-use std::fs::File;
 use std::sync::Arc;
 
 #[inline(never)]
@@ -87,16 +86,20 @@ fn main() {
         }
     });
 
-    std::thread::sleep(std::time::Duration::from_secs(5));
-    match guard.report().build() {
-        Ok(report) => {
-            let file = File::create("flamegraph.svg").unwrap();
-            report.flamegraph(file).unwrap();
-
-            println!("{}", report);
-        }
-        Err(_) => {}
-    };
-
+    loop {
+        match guard
+            .report()
+            .frames_post_processor(|frames| {
+                frames.thread_name = "PROCESSED".to_string();
+            })
+            .build()
+        {
+            Ok(report) => {
+                println!("{}", report);
+            }
+            Err(_) => {}
+        };
+        std::thread::sleep(std::time::Duration::from_secs(1))
+    }
     //    rsperftools::PROFILER.lock().unwrap().stop();
 }

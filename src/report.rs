@@ -1,39 +1,73 @@
-use crate::frames::{Frames, UnresolvedFrames};
+use crate::frames::Frames;
+use crate::profiler::Profiler;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-use crate::Result;
+use crate::{Error, Result};
 
 pub struct Report {
-    data: HashMap<Frames, usize>,
+    pub data: HashMap<Frames, usize>,
 }
 
-impl Report {
-    pub(crate) fn from_collector(data: &mut Collector<UnresolvedFrames>) -> Result<Self> {
+pub struct ReportBuilder<'a> {
+    frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
+    profiler: &'a spin::RwLock<Result<Profiler>>,
+}
+
+impl<'a> ReportBuilder<'a> {
+    pub fn new(profiler: &'a spin::RwLock<Result<Profiler>>) -> Self {
+        Self {
+            frames_post_processor: None,
+            profiler,
+        }
+    }
+
+    pub fn frames_post_processor<T>(&mut self, frames_post_processor: T) -> &mut Self
+    where
+        T: Fn(&mut Frames) + 'static,
+    {
+        self.frames_post_processor
+            .replace(Box::new(frames_post_processor));
+
+        self
+    }
+
+    pub fn build(&mut self) -> Result<Report> {
         let mut hash_map = HashMap::new();
 
-        data.iter()?.for_each(|entry| {
-            let count = entry.count;
-            if count > 0 {
-                let key = Frames::from(entry.item.clone());
-
-                match hash_map.get_mut(&key) {
-                    Some(value) => {
-                        *value += count;
-                    }
-                    None => {
-                        match hash_map.insert(key, count) {
-                            None => {}
-                            Some(_) => {
-                                unreachable!();
-                            }
-                        };
-                    }
-                }
+        match self.profiler.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
             }
-        });
+            Ok(profiler) => {
+                profiler.data.iter()?.for_each(|entry| {
+                    let count = entry.count;
+                    if count > 0 {
+                        let mut key = Frames::from(entry.item.clone());
+                        if let Some(processor) = &self.frames_post_processor {
+                            processor(&mut key);
+                        }
 
-        Ok(Self { data: hash_map })
+                        match hash_map.get_mut(&key) {
+                            Some(value) => {
+                                *value += count;
+                            }
+                            None => {
+                                match hash_map.insert(key, count) {
+                                    None => {}
+                                    Some(_) => {
+                                        unreachable!();
+                                    }
+                                };
+                            }
+                        }
+                    }
+                });
+
+                Ok(Report { data: hash_map })
+            }
+        }
     }
 }
 
@@ -48,7 +82,6 @@ impl Display for Report {
     }
 }
 
-use crate::collector::Collector;
 #[cfg(feature = "flamegraph")]
 use std::io::Write;
 

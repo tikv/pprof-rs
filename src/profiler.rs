@@ -6,7 +6,7 @@ use nix::sys::signal;
 use crate::collector::Collector;
 use crate::frames::UnresolvedFrames;
 use crate::timer::Timer;
-use crate::Report;
+use crate::ReportBuilder;
 use crate::Result;
 use crate::{Error, MAX_DEPTH};
 use std::thread::ThreadId;
@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 }
 
 pub struct Profiler {
-    data: Collector<UnresolvedFrames>,
+    pub data: Collector<UnresolvedFrames>,
     sample_counter: i32,
 
     pub running: bool,
@@ -44,14 +44,8 @@ impl ProfilerGuard<'_> {
         }
     }
 
-    pub fn report(&self) -> Result<Report> {
-        match self.profiler.write().as_mut() {
-            Err(err) => {
-                log::error!("Error in creating profiler: {}", err);
-                Err(Error::CreatingError)
-            }
-            Ok(profiler) => profiler.report(),
-        }
+    pub fn report(&self) -> ReportBuilder {
+        ReportBuilder::new(&self.profiler)
     }
 }
 
@@ -112,13 +106,6 @@ impl Profiler {
         }
     }
 
-    pub fn report(&mut self) -> Result<Report> {
-        self.ignore_signal_handler()?;
-        let report = Report::from_collector(&mut self.data)?;
-        self.register_signal_handler()?;
-        Ok(report)
-    }
-
     fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
         self.data = Collector::new()?;
@@ -139,7 +126,7 @@ impl Profiler {
         }
     }
 
-    fn register_signal_handler(&self) -> Result<()> {
+    pub fn register_signal_handler(&self) -> Result<()> {
         let handler = signal::SigHandler::Handler(perf_signal_handler);
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
 

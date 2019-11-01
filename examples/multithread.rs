@@ -87,7 +87,7 @@ fn main() {
     });
 
     loop {
-        match guard.report() {
+        match guard.report().build() {
             Ok(report) => {
                 println!("{}", report);
             }

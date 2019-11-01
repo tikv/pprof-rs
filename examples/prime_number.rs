@@ -57,7 +57,7 @@ fn main() {
 
         println!("Prime numbers: {}", v);
 
-        match guard.report() {
+        match guard.report().build() {
             Ok(report) => {
                 println!("{}", report);
             }
