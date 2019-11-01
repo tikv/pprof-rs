@@ -2,10 +2,10 @@ use crate::frames::UnresolvedFrames;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 
-pub const BUCKETS: usize = (1 << 12) / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUCKETS: usize = (1 << 16) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
 pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
@@ -179,13 +179,42 @@ impl<T> TempFdArray<T> {
 
     fn iter(&mut self) -> std::io::Result<impl Iterator<Item = &T>> {
         let mut file_vec = Vec::new();
+        self.file.seek(SeekFrom::Start(0))?;
         self.file.read_to_end(&mut file_vec)?;
+        self.file.seek(SeekFrom::End(0))?;
 
-        let length = file_vec.len() / std::mem::size_of::<T>();
-        let ts = unsafe { std::slice::from_raw_parts(file_vec.as_ptr() as *const T, length) };
+        Ok(TempFdArrayIterator {
+            buffer: &self.buffer[0..self.buffer_index],
+            file_vec,
+            index: 0,
+        })
+    }
+}
 
-        let buf_len = self.buffer_index;
-        Ok(self.buffer[0..buf_len].iter().chain(ts.iter()))
+pub struct TempFdArrayIterator<'a, T> {
+    pub buffer: &'a [T],
+    pub file_vec: Vec<u8>,
+    pub index: usize,
+}
+
+impl<'a, T> Iterator for TempFdArrayIterator<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.buffer.len() {
+            self.index += 1;
+            Some(&self.buffer[self.index - 1])
+        } else {
+            let length = self.file_vec.len() / std::mem::size_of::<T>();
+            let ts =
+                unsafe { std::slice::from_raw_parts(self.file_vec.as_ptr() as *const T, length) };
+            if self.index - self.buffer.len() < ts.len() {
+                self.index += 1;
+                Some(&ts[self.index - self.buffer.len() - 1])
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -287,7 +316,7 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                collector.add(item);
+                collector.add(item).unwrap();
             }
         }
 
@@ -298,14 +327,13 @@ mod tests {
         for item in 0..(1 << 10) * 4 {
             let count = item % 4;
             match real_map.get(&item) {
-                Some(item) => {
-                    assert_eq!(*item, count);
+                Some(value) => {
+                    assert_eq!(count, *value);
                 }
                 None => {
                     assert_eq!(count, 0);
                 }
             }
         }
-        assert!(false);
     }
 }

@@ -44,7 +44,6 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = Arc::new(prepare_prime_numbers());
 
-    //    println!("{}", std::mem::size_of::<Collector<UnresolvedFrames>>());
     let guard = rsperftools::ProfilerGuard::new(100).unwrap();
 
     let p1 = prime_numbers.clone();
