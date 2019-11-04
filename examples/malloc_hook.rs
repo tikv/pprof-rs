@@ -1,4 +1,42 @@
+extern crate libc;
+
 use rsperftools;
+use std::ffi::c_void;
+
+extern "C" {
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
+
+    fn malloc(size: usize) -> *mut c_void;
+}
+
+static mut FLAG: bool = false;
+
+extern "C" fn malloc_hook(size: usize) -> *mut c_void {
+    unsafe {
+        FLAG = true;
+    }
+    remove_hook();
+
+    let bt = backtrace::Backtrace::new();
+    println!("{:?}", bt);
+    let p = unsafe { malloc(size) };
+
+    set_hook();
+
+    p
+}
+
+fn set_hook() {
+    unsafe {
+        __malloc_hook = Some(malloc_hook);
+    }
+}
+
+fn remove_hook() {
+    unsafe {
+        __malloc_hook = None;
+    }
+}
 
 #[inline(never)]
 fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {
@@ -43,24 +81,16 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    let guard = rsperftools::ProfilerGuard::new(100).unwrap();
+    let _ = rsperftools::ProfilerGuard::new(100).unwrap();
 
     loop {
-        let mut v = 0;
+        let mut _v = 0;
 
+        set_hook();
         for i in 2..50000 {
             if is_prime_number(i, &prime_numbers) {
-                v += 1;
+                _v += 1;
             }
         }
-
-        println!("Prime numbers: {}", v);
-
-        match guard.report().build() {
-            Ok(report) => {
-                println!("{}", report);
-            }
-            Err(_) => {}
-        };
     }
 }

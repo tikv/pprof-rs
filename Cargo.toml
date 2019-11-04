@@ -1,5 +1,5 @@
 [package]
-name = "rsperftools"
+name = "pprof"
 version = "0.3.3"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2018"
