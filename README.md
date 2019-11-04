@@ -153,6 +153,8 @@ Then, signal safety POSIX function is quite limited as [listed here](http://man7
 
 Unit tests have been added to guarantee there is no `malloc` in sample functions.
 
+`futex` is also not safe to use in signal handler. So we use a spin lock to avoid usage of `futex`.
+
 ## TODO
 
 1. Restore the original SIGPROF handler after stopping the profiler.

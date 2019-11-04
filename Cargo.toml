@@ -1,11 +1,12 @@
 [package]
 name = "pprof"
-version = "0.3.7"
+version = "0.3.8"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2018"
 license = "Apache-2.0"
 description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"
+documentation = "https://docs.rs/pprof/"
 readme = "README.md"
 
 [features]
@@ -31,3 +32,6 @@ required-features = ["flamegraph"]
 [[example]]
 name = "multithread_flamegraph"
 required-features = ["flamegraph"]
+
+[package.metadata.docs.rs]
+all-features = true
