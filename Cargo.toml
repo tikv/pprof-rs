@@ -1,11 +1,12 @@
 [package]
 name = "pprof"
-version = "0.3.6"
+version = "0.3.7"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2018"
 license = "Apache-2.0"
 description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"
+readme = "README.md"
 
 [features]
 flamegraph = ["inferno"]
