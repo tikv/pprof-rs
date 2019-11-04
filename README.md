@@ -44,3 +44,49 @@ if let Ok(report) = guard.report().build() {
 Here is an example of generated flamegraph:
 
 ![flamegraph](https://user-images.githubusercontent.com/5244316/68021936-c1265e80-fcdd-11e9-8fa5-62b548bc751d.png)
+
+## Frame Post Processor
+
+Before report was generated, `frame_post_processor` was provided as an interface to modify raw statistic data. If you want to group several symbol/thread together, or demangle specially for some symbols, this feature will benefit you.
+
+For example: 
+
+```rust
+fn frames_post_processor() -> impl Fn(&mut pprof::Frames) {
+    let thread_rename = [
+        (Regex::new(r"^grpc-server-\d*$").unwrap(), "grpc-server"),
+        (Regex::new(r"^cop-high\d*$").unwrap(), "cop-high"),
+        (Regex::new(r"^cop-normal\d*$").unwrap(), "cop-normal"),
+        (Regex::new(r"^cop-low\d*$").unwrap(), "cop-low"),
+        (Regex::new(r"^raftstore-\d*$").unwrap(), "raftstore"),
+        (Regex::new(r"^raftstore-\d*-\d*$").unwrap(), "raftstore"),
+        (Regex::new(r"^sst-importer\d*$").unwrap(), "sst-importer"),
+        (
+            Regex::new(r"^store-read-low\d*$").unwrap(),
+            "store-read-low",
+        ),
+        (Regex::new(r"^rocksdb:bg\d*$").unwrap(), "rocksdb:bg"),
+        (Regex::new(r"^rocksdb:low\d*$").unwrap(), "rocksdb:low"),
+        (Regex::new(r"^rocksdb:high\d*$").unwrap(), "rocksdb:high"),
+        (Regex::new(r"^snap sender\d*$").unwrap(), "snap-sender"),
+        (Regex::new(r"^snap-sender\d*$").unwrap(), "snap-sender"),
+        (Regex::new(r"^apply-\d*$").unwrap(), "apply"),
+        (Regex::new(r"^future-poller-\d*$").unwrap(), "future-poller"),
+    ];
+
+    move |frames| {
+        for (regex, name) in thread_rename.iter() {
+            if regex.is_match(&frames.thread_name) {
+                frames.thread_name = name.to_string();
+            }
+        }
+    }
+}
+```
+
+```rust
+if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report().build() {
+    let file = File::create("flamegraph.svg").unwrap();
+    report.flamegraph(file).unwrap();
+}
+```
