@@ -2,6 +2,8 @@
 
 `pprof` is a cpu profiler that can be easily integrated into a rust program.
 
+[![Crates.io](https://img.shields.io/crates/v/pprof.svg)](https://crates.io/crates/pprof)
+
 ## Usage
 
 First, get a guard to start profiling. Profiling will continue until this guard was dropped.
