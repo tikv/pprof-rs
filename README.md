@@ -1,6 +1,6 @@
 # pprof
 
-`pprof` is a cpu profiler which can be easily integrated into a rust program.
+`pprof` is a cpu profiler that can be easily integrated into a rust program.
 
 ## Usage
 
@@ -10,7 +10,7 @@ First, get a guard to start profiling. Profiling will continue until this guard 
 let guard = pprof::ProfilerGuard::new(100).unwrap();
 ```
 
-During the profiling time, you can get report with guard.
+During the profiling time, you can get a report with the guard.
 
 ```rust
 if let Ok(report) = guard.report().build() {
@@ -32,7 +32,7 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 pprof = { version = "0.3", features = ["flamegraph"] } 
 ```
 
-If `flamegraph` feature is enabled, you can generate flamegraph from report. `Report` struct has a method `flamegraph` which can generate flamegraph and write it into a `Write`.
+If `flamegraph` feature is enabled, you can generate flamegraph from the report. `Report` struct has a method `flamegraph` which can generate flamegraph and write it into a `Write`.
 
 ```rust
 if let Ok(report) = guard.report().build() {
@@ -47,7 +47,7 @@ Here is an example of generated flamegraph:
 
 ## Frame Post Processor
 
-Before report was generated, `frame_post_processor` was provided as an interface to modify raw statistic data. If you want to group several symbol/thread together, or demangle specially for some symbols, this feature will benefit you.
+Before the report was generated, `frame_post_processor` was provided as an interface to modify raw statistic data. If you want to group several symbols/thread or demangle for some symbols, this feature will benefit you.
 
 For example: 
 
@@ -90,3 +90,68 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
     report.flamegraph(file).unwrap();
 }
 ```
+
+## Why not ...
+
+There have been tons of profilers, why we create a new one? Here we make a comparison between `pprof-rs` and other popular profilers to help you choose the best fit one.
+
+### gperftools
+
+`gperftools` is also an integrated profiler. There is also a wrapper for `gperftools` in rust called [`cpuprofiler`](https://crates.io/crates/cpuprofiler) which makes it programmable for a rust program.
+
+#### Pros
+
+1. `pprof-rs` has a modern build system and can be integrated into a rust program easily while compiling `gperftools` statically is buggy.
+2. `pprof-rs` has a native rust interface while `gperftools`'s wrapper is **just** a wrapper.
+3. Programming with rust guarantees thread safety natively.
+
+#### Cons
+
+1. `gperftools` is a collection of performance analysis tools which contains cpu profiler, heap profiler... `pprof-rs` focuses on cpu profiler now.
+
+### perf
+
+`perf` is a performance analyzing tool in Linux.
+
+#### Pros
+
+1. You don't need to start another process to perf with `pprof-rs`.
+2. `pprof-rs` can be easily integrated with rust program which means you don't need to install any other programs.
+3. `pprof-rs` has a modern programmable interface to hack with
+4. `pprof-rs` theoretically supports all POSIX systems and can easily support more systems in the future.
+
+#### Cons
+
+1. `perf` is much more feature-rich than `pprof-rs`.
+2. `perf` is highly integrated with Linux.
+
+## Implementation
+
+When profiling was started, `setitimer` system call was used to set up a timer which will send a SIGPROF to this program every constant interval.
+
+When receiving a SIGPROF signal, the signal handler will capture a backtrace and increase the count of it. After a while, the profiler can get every possible backtrace and their count. Finally, we can generate a report with profiler data.
+
+However, the real world is full of thorns. There are many worths of note parts in the implementation.
+
+### Backtrace
+
+Unfortunately, there is no 100% robust stack tracing method. [Some related researches](https://github.com/gperftools/gperftools/wiki/gperftools%27-stacktrace-capturing-methods-and-their-issues) have been done by gperftools. `pprof-rs` uses [`backtrace-rs`](https://github.com/rust-lang/backtrace-rs) which finally uses libunwind provided by `glibc`
+
+**WARN:** as described in former gperftools documents, libunwind provided by `glibc` is not signal safe. 
+
+> libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
+
+### Signal Safety
+
+Signal safety is hard to guarantee. But it's not *that* hard.
+
+First, we have to avoid deadlock. When profiler samples or reports, it will get a global lock on the profiler. Particularly, deadlock happenswhen the running program is getting a report from the profiler (which will hold the lock), at the same time, a SIGPROF signal is triggered and the profiler wants to sample (which will also hold the lock). So we don't wait for the lock in signal handler, instead we `try_lock` in the signal handler. If the global lock cannot be gotten, the profiler will give up directly.
+
+Then, signal safety POSIX function is quite limited as [listed here](http://man7.org/linux/man-pages/man7/signal-safety.7.html). The most bothering issue is that we cannot use `malloc` in signal handler. So we can only use pre-allocated memory in profiler. The simplest way is `write` every sample serially into a file. We optimized it with a fix-sized hashmap that has a fixed number of buckets and every bucket is an array with a fixed number of items. If the hashmap is full, we pop out the item with minimum count and write it into a temporary file.
+
+Unit tests have been added to guarantee there is no `malloc` in sample functions.
+
+## TODO
+
+1. Restore the original SIGPROF handler after stopping the profiler.
+2. Support generating [pprof format results](https://github.com/google/pprof/blob/master/proto/profile.proto)
