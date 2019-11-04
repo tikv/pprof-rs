@@ -11,16 +11,17 @@ use crate::{Error, MAX_DEPTH};
 use crate::{ReportBuilder, MAX_THREAD_NAME};
 
 lazy_static::lazy_static! {
-    pub static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
+    pub(crate) static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
 }
 
 pub struct Profiler {
-    pub data: Collector<UnresolvedFrames>,
+    pub(crate) data: Collector<UnresolvedFrames>,
     sample_counter: i32,
 
-    pub running: bool,
+    running: bool,
 }
 
+/// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
 pub struct ProfilerGuard<'a> {
     profiler: &'a spin::RwLock<Result<Profiler>>,
     _timer: Timer,
@@ -32,6 +33,7 @@ fn trigger_lazy() {
 }
 
 impl ProfilerGuard<'_> {
+    /// Start profiling with given sample frequency.
     pub fn new(frequency: c_int) -> Result<ProfilerGuard<'static>> {
         trigger_lazy();
 
@@ -50,6 +52,7 @@ impl ProfilerGuard<'_> {
         }
     }
 
+    /// Generate a report
     pub fn report(&self) -> ReportBuilder {
         ReportBuilder::new(&self.profiler)
     }
@@ -148,13 +151,6 @@ impl Profiler {
         Ok(())
     }
 
-    pub fn ignore_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::SigIgn;
-        unsafe { signal::signal(signal::SIGPROF, handler) }?;
-
-        Ok(())
-    }
-
     fn unregister_signal_handler(&self) -> Result<()> {
         let handler = signal::SigHandler::SigDfl;
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
@@ -173,9 +169,9 @@ impl Profiler {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::c_void;
-    use std::cell::RefCell;
     use super::*;
+    use std::cell::RefCell;
+    use std::ffi::c_void;
 
     extern "C" {
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;

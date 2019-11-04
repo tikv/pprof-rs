@@ -95,12 +95,21 @@ impl Hash for UnresolvedFrames {
     }
 }
 
+/// Symbol is a representation of a function symbol. It contains name and addr of it. If built with
+/// debug message, it can also provide line number and filename. The name in it is not demangled.
 #[derive(Debug, Clone)]
 pub struct Symbol {
-    name: Option<Vec<u8>>,
-    addr: Option<*mut c_void>,
-    lineno: Option<u32>,
-    filename: Option<PathBuf>,
+    /// This name is raw name of a symbol (which hasn't been demangled).
+    pub name: Option<Vec<u8>>,
+
+    /// The address of the function. It is not 100% trustworthy.
+    pub addr: Option<*mut c_void>,
+
+    /// Line number of this symbol. If compiled with debug message, you can get it.
+    pub lineno: Option<u32>,
+
+    /// Filename of this symbol. If compiled with debug message, you can get it.
+    pub filename: Option<PathBuf>,
 }
 
 unsafe impl Send for Symbol {}
@@ -147,6 +156,8 @@ impl PartialEq for Symbol {
     }
 }
 
+/// A representation of a backtrace. `thread_name` and `thread_id` was got from `pthread_getname_np`
+/// and `pthread_self`. frames is a vector of symbols.
 #[derive(Debug, Clone)]
 pub struct Frames {
     pub frames: Vec<Vec<Symbol>>,

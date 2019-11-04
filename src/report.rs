@@ -5,23 +5,28 @@ use std::fmt::{Display, Formatter};
 
 use crate::{Error, Result};
 
+/// The final presentation of a report which is actually an `HashMap` from `Frames` to usize (count).
 pub struct Report {
+    /// key is a backtrace captured by profiler and value is count of it.
     pub data: HashMap<Frames, usize>,
 }
 
+/// A builder of `Report`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
     profiler: &'a spin::RwLock<Result<Profiler>>,
 }
 
 impl<'a> ReportBuilder<'a> {
-    pub fn new(profiler: &'a spin::RwLock<Result<Profiler>>) -> Self {
+    pub(crate) fn new(profiler: &'a spin::RwLock<Result<Profiler>>) -> Self {
         Self {
             frames_post_processor: None,
             profiler,
         }
     }
 
+    /// Set `frames_post_processor` of a `ReportBuilder`. Before finally building a report, `frames_post_processor`
+    /// will be applied to every Frames.
     pub fn frames_post_processor<T>(&mut self, frames_post_processor: T) -> &mut Self
     where
         T: Fn(&mut Frames) + 'static,
@@ -32,6 +37,7 @@ impl<'a> ReportBuilder<'a> {
         self
     }
 
+    /// Build a `Report`.
     pub fn build(&mut self) -> Result<Report> {
         let mut hash_map = HashMap::new();
 
@@ -71,6 +77,16 @@ impl<'a> ReportBuilder<'a> {
     }
 }
 
+/// This will print Report in a human-readable format:
+///
+/// ```shell
+/// FRAME: pprof::profiler::perf_signal_handler::h7b995c4ab2e66493 -> FRAME: Unknown -> FRAME: {func1} ->
+/// FRAME: {func2} -> FRAME: {func3} ->  THREAD: {thread_name} {count}
+/// ```
+///
+/// This format is **not** stable! Never try to parse it and get profile. `data` field in `Report` is
+/// public for read and write. You can do anything you want with it.
+///
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for (key, val) in self.data.iter() {
@@ -87,6 +103,7 @@ use std::io::Write;
 
 #[cfg(feature = "flamegraph")]
 impl Report {
+    /// `flamegraph` will write an svg flamegraph into `writer` **only available with `flamegraph` feature**
     pub fn flamegraph<W>(&self, writer: W) -> Result<()>
     where
         W: Write,
