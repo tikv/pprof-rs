@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 pub const BUCKETS: usize = (1 << 14) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
-pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUFFER_LENGTH: usize = (1 << 14) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
 pub struct Entry<T> {
     pub item: T,
