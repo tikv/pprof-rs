@@ -1,4 +1,4 @@
-use rsperftools;
+use pprof;
 use std::sync::Arc;
 
 #[inline(never)]
@@ -45,7 +45,7 @@ fn main() {
     let prime_numbers = Arc::new(prepare_prime_numbers());
 
     //    println!("{}", std::mem::size_of::<Collector<UnresolvedFrames>>());
-    let guard = rsperftools::ProfilerGuard::new(100).unwrap();
+    let guard = pprof::ProfilerGuard::new(100).unwrap();
 
     let p1 = prime_numbers.clone();
     std::thread::Builder::new()
@@ -101,5 +101,5 @@ fn main() {
         };
         std::thread::sleep(std::time::Duration::from_secs(1))
     }
-    //    rsperftools::PROFILER.lock().unwrap().stop();
+    //    pprof::PROFILER.lock().unwrap().stop();
 }

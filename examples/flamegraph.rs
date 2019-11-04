@@ -1,4 +1,4 @@
-use rsperftools;
+use pprof;
 use std::fs::File;
 
 #[inline(never)]
@@ -76,7 +76,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    let guard = rsperftools::ProfilerGuard::new(100).unwrap();
+    let guard = pprof::ProfilerGuard::new(100).unwrap();
 
     let mut v = 0;
 

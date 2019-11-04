@@ -1,4 +1,4 @@
-use rsperftools;
+use pprof;
 
 #[inline(never)]
 fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {
@@ -43,7 +43,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    let guard = rsperftools::ProfilerGuard::new(100).unwrap();
+    let guard = pprof::ProfilerGuard::new(100).unwrap();
 
     loop {
         let mut v = 0;

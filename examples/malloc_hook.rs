@@ -1,6 +1,6 @@
 extern crate libc;
 
-use rsperftools;
+use pprof;
 use std::ffi::c_void;
 
 extern "C" {
@@ -81,7 +81,7 @@ fn prepare_prime_numbers() -> Vec<usize> {
 fn main() {
     let prime_numbers = prepare_prime_numbers();
 
-    let _ = rsperftools::ProfilerGuard::new(100).unwrap();
+    let _ = pprof::ProfilerGuard::new(100).unwrap();
 
     loop {
         let mut _v = 0;
