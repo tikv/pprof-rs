@@ -112,6 +112,42 @@ pub struct Symbol {
     pub filename: Option<PathBuf>,
 }
 
+impl Symbol {
+    pub fn name(&self) -> String {
+        match &self.name {
+            Some(name) => match std::str::from_utf8(&name) {
+                Ok(name) => format!("{}", demangle(name)),
+                Err(_) => "NonUtf8Name".to_owned(),
+            },
+            None => "Unknown".to_owned(),
+        }
+    }
+
+    pub fn sys_name(&self) -> &str {
+        match &self.name {
+            Some(name) => match std::str::from_utf8(&name) {
+                Ok(name) => name,
+                Err(_) => "NonUtf8Name",
+            },
+            None => "Unknown",
+        }
+    }
+
+    pub fn filename(&self) -> &str {
+        match &self.filename {
+            Some(name) => match name.as_os_str().to_str() {
+                Some(name) => name,
+                None => "NonUtf8Name",
+            },
+            None => "Unknown",
+        }
+    }
+
+    pub fn lineno(&self) -> u32 {
+        self.lineno.unwrap_or(0)
+    }
+}
+
 unsafe impl Send for Symbol {}
 
 impl From<&backtrace::Symbol> for Symbol {
