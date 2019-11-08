@@ -38,8 +38,9 @@ mod timer;
 pub use error::{Error, Result};
 pub use frames::{Frames, Symbol};
 pub use profiler::ProfilerGuard;
-pub use report::{ReportBuilder, Report};
+pub use report::{Report, ReportBuilder};
 
+#[cfg(feature = "protobuf")]
 pub mod protos {
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
 }

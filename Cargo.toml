@@ -11,6 +11,7 @@ readme = "README.md"
 
 [features]
 flamegraph = ["inferno"]
+protobuf = ["prost", "bytes", "prost-derive", "prost-build"]
 
 [dependencies]
 backtrace = "0.3"
@@ -24,12 +25,12 @@ rustc-demangle = "0.1.16"
 tempfile = "3.1.0"
 memmap = "0.7.0"
 libc = "0.2"
-prost = "0.5"
-bytes = "0.4.12"
-prost-derive = "0.5"
+prost = { version="0.5", optional = true }
+bytes = { version="0.4.12", optional = true }
+prost-derive = { version="0.5", optional = true }
 
 [build-dependencies]
-prost-build = { version = "0.5" }
+prost-build = { version = "0.5", optional = true }
 
 [[example]]
 name = "flamegraph"

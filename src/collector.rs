@@ -247,8 +247,8 @@ impl<T: Hash + Eq> Collector<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
     use std::ffi::c_void;
 
     #[test]
