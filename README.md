@@ -121,6 +121,8 @@ Then you can use `pprof` command with `profile.pb`. For example:
 
 Then `pprof` will generate a svg file according to the profile.
 
+![tree](https://user-images.githubusercontent.com/5244316/68571082-1f50ff80-049d-11ea-8437-211ab0d80480.png)
+
 ## Why not ...
 
 There have been tons of profilers, why we create a new one? Here we make a comparison between `pprof-rs` and other popular profilers to help you choose the best fit one.
