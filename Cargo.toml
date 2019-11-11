@@ -37,6 +37,10 @@ name = "flamegraph"
 required-features = ["flamegraph"]
 
 [[example]]
+name = "profile_proto"
+required-features = ["protobuf"]
+
+[[example]]
 name = "multithread_flamegraph"
 required-features = ["flamegraph"]
 

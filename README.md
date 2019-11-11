@@ -93,6 +93,34 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
 }
 ```
 
+## Use with `pprof`
+
+With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format. 
+
+```rust
+match guard.report().build() {
+    Ok(report) => {
+        let mut file = File::create("profile.pb").unwrap();
+        let profile = report.pprof().unwrap();
+
+        let mut content = Vec::new();
+        profile.encode(&mut content).unwrap();
+        file.write_all(&content).unwrap();
+
+        println!("report: {}", &report);
+    }
+    Err(_) => {}
+};
+```
+
+Then you can use `pprof` command with `profile.pb`. For example:
+
+```shell
+~/go/bin/pprof -svg profile.pb
+```
+
+Then `pprof` will generate a svg file according to the profile.
+
 ## Why not ...
 
 There have been tons of profilers, why we create a new one? Here we make a comparison between `pprof-rs` and other popular profilers to help you choose the best fit one.
