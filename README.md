@@ -167,9 +167,9 @@ However, the real world is full of thorns. There are many worths of note parts i
 
 ### Backtrace
 
-Unfortunately, there is no 100% robust stack tracing method. [Some related researches](https://github.com/gperftools/gperftools/wiki/gperftools%27-stacktrace-capturing-methods-and-their-issues) have been done by gperftools. `pprof-rs` uses [`backtrace-rs`](https://github.com/rust-lang/backtrace-rs) which finally uses libunwind provided by `glibc`
+Unfortunately, there is no 100% robust stack tracing method. [Some related researches](https://github.com/gperftools/gperftools/wiki/gperftools%27-stacktrace-capturing-methods-and-their-issues) have been done by gperftools. `pprof-rs` uses [`backtrace-rs`](https://github.com/rust-lang/backtrace-rs) which finally uses libunwind provided by `libgcc`
 
-**WARN:** as described in former gperftools documents, libunwind provided by `glibc` is not signal safe. 
+**WARN:** as described in former gperftools documents, libunwind provided by `libgcc` is not signal safe. 
 
 > libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
 
