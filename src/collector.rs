@@ -5,25 +5,27 @@ use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 
-pub const BUCKETS: usize = (1 << 14) / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUCKETS: usize = (1 << 12);
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
-pub const BUFFER_LENGTH: usize = (1 << 14) / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
 pub struct Entry<T> {
     pub item: T,
     pub count: usize,
 }
 
-pub struct Bucket<T> {
+pub struct Bucket<T: 'static> {
     pub length: usize,
-    entries: [Entry<T>; BUCKETS_ASSOCIATIVITY],
+    entries: &'static mut [Entry<T>; BUCKETS_ASSOCIATIVITY],
 }
 
 impl<T: Eq> Default for Bucket<T> {
     fn default() -> Bucket<T> {
+        let entries = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+
         Self {
             length: 0,
-            entries: unsafe { std::mem::MaybeUninit::uninit().assume_init() },
+            entries: Box::leak(entries),
         }
     }
 }
@@ -75,7 +77,7 @@ impl<T: Eq> Bucket<T> {
     }
 }
 
-pub struct BucketIterator<'a, T> {
+pub struct BucketIterator<'a, T: 'static> {
     related_bucket: &'a Bucket<T>,
     index: usize,
 }
@@ -93,14 +95,15 @@ impl<'a, T> Iterator for BucketIterator<'a, T> {
     }
 }
 
-pub struct StackHashCounter<T: Hash + Eq> {
-    buckets: [Bucket<T>; BUCKETS],
+pub struct StackHashCounter<T: Hash + Eq + 'static> {
+    buckets: &'static mut [Bucket<T>; BUCKETS],
 }
 
 impl<T: Hash + Eq> Default for StackHashCounter<T> {
     fn default() -> Self {
-        let mut counter = Self {
-            buckets: unsafe { std::mem::MaybeUninit::uninit().assume_init() },
+        let buckets = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+        let counter = Self {
+            buckets: Box::leak(buckets),
         };
         counter.buckets.iter_mut().for_each(|item| {
             *item = Bucket::<T>::default();
@@ -135,9 +138,9 @@ impl<T: Hash + Eq> StackHashCounter<T> {
     }
 }
 
-pub struct TempFdArray<T> {
+pub struct TempFdArray<T: 'static> {
     file: File,
-    buffer: [T; BUFFER_LENGTH],
+    buffer: &'static mut [T; BUFFER_LENGTH],
     buffer_index: usize,
     phantom: PhantomData<T>,
 }
@@ -145,9 +148,10 @@ pub struct TempFdArray<T> {
 impl<T> TempFdArray<T> {
     fn new() -> std::io::Result<TempFdArray<T>> {
         let file = tempfile::tempfile()?;
+        let buffer = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
         Ok(Self {
             file,
-            buffer: unsafe { std::mem::MaybeUninit::uninit().assume_init() },
+            buffer: Box::leak(buffer),
             buffer_index: 0,
             phantom: PhantomData,
         })
@@ -218,12 +222,12 @@ impl<'a, T> Iterator for TempFdArrayIterator<'a, T> {
     }
 }
 
-pub struct Collector<T: Hash + Eq> {
+pub struct Collector<T: Hash + Eq + 'static> {
     map: StackHashCounter<T>,
     temp_array: TempFdArray<Entry<T>>,
 }
 
-impl<T: Hash + Eq> Collector<T> {
+impl<T: Hash + Eq + 'static> Collector<T> {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             map: StackHashCounter::<T>::default(),
@@ -419,7 +423,7 @@ mod tests {
 
         b.iter(|| {
             vec.iter().for_each(|item| {
-                collector.add(item).unwrap();
+                collector.add(item.clone()).unwrap();
             });
         });
     }
@@ -437,7 +441,7 @@ mod tests {
 
         b.iter(|| {
             vec.iter().for_each(|item| {
-                collector.add(item);
+                collector.add(item.clone());
             });
         });
     }
