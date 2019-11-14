@@ -100,14 +100,14 @@ impl Display for Report {
 
 #[cfg(feature = "flamegraph")]
 mod flamegraph {
-    use std::io::Write;
     use super::*;
+    use std::io::Write;
 
     impl Report {
         /// `flamegraph` will write an svg flamegraph into `writer` **only available with `flamegraph` feature**
         pub fn flamegraph<W>(&self, writer: W) -> Result<()>
-            where
-                W: Write,
+        where
+            W: Write,
         {
             use inferno::flamegraph;
 
@@ -143,7 +143,7 @@ mod flamegraph {
                     lines.iter().map(|s| &**s),
                     writer,
                 )
-                    .unwrap(); // TODO: handle this error
+                .unwrap(); // TODO: handle this error
             }
 
             Ok(())
@@ -153,9 +153,9 @@ mod flamegraph {
 
 #[cfg(feature = "protobuf")]
 mod protobuf {
+    use super::*;
     use crate::protos;
     use std::collections::HashSet;
-    use super::*;
 
     impl Report {
         // `pprof` will generate google's pprof format report

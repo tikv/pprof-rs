@@ -415,11 +415,29 @@ mod tests {
         let mut vec: Vec<u64> = Vec::with_capacity(SIZE);
         for _ in 0..vec.capacity() {
             vec.push(rand::random());
-        };
+        }
 
         b.iter(|| {
             vec.iter().for_each(|item| {
                 collector.add(item).unwrap();
+            });
+        });
+    }
+
+    #[bench]
+    fn write_into_stack_hash_counter(b: &mut Bencher) {
+        let mut collector = StackHashCounter::default();
+
+        const SIZE: usize = 1000;
+
+        let mut vec: Vec<u64> = Vec::with_capacity(SIZE);
+        for _ in 0..vec.capacity() {
+            vec.push(rand::random());
+        }
+
+        b.iter(|| {
+            vec.iter().for_each(|item| {
+                collector.add(item);
             });
         });
     }
