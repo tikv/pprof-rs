@@ -20,6 +20,7 @@
 //! ```
 
 #![feature(test)]
+#[cfg(test)]
 extern crate test;
 
 #[macro_use]
