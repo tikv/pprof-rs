@@ -1,3 +1,5 @@
+// Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
+
 use std::os::raw::c_int;
 use std::ptr::null_mut;
 
