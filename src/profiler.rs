@@ -163,7 +163,7 @@ impl Profiler {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 
-        if let Ok(()) = self.data.add(frames) {}
+        if let Ok(()) = self.data.add(frames, 1) {}
     }
 }
 
@@ -242,9 +242,9 @@ mod tests {
 
     #[test]
     fn malloc_free() {
-        let prime_numbers = prepare_prime_numbers();
+        trigger_lazy();
 
-        let _ = ProfilerGuard::new(100).unwrap();
+        let prime_numbers = prepare_prime_numbers();
 
         let mut _v = 0;
 
@@ -254,6 +254,7 @@ mod tests {
         for i in 2..50000 {
             if is_prime_number(i, &prime_numbers) {
                 _v += 1;
+                perf_signal_handler(27);
             }
         }
         unsafe {

@@ -11,7 +11,7 @@ pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<Unresolve
 
 pub struct Entry<T> {
     pub item: T,
-    pub count: usize,
+    pub count: isize,
 }
 
 pub struct Bucket<T: 'static> {
@@ -31,11 +31,11 @@ impl<T: Eq> Default for Bucket<T> {
 }
 
 impl<T: Eq> Bucket<T> {
-    pub fn add(&mut self, key: T) -> Option<Entry<T>> {
+    pub fn add(&mut self, key: T, count: isize) -> Option<Entry<T>> {
         let mut done = false;
         self.entries[0..self.length].iter_mut().for_each(|ele| {
             if ele.item == key {
-                ele.count += 1;
+                ele.count += count;
                 done = true;
             }
         });
@@ -45,7 +45,7 @@ impl<T: Eq> Bucket<T> {
         } else if self.length < BUCKETS_ASSOCIATIVITY {
             let ele = &mut self.entries[self.length];
             ele.item = key;
-            ele.count = 1;
+            ele.count = count;
 
             self.length += 1;
             None
@@ -62,7 +62,7 @@ impl<T: Eq> Bucket<T> {
 
             let mut new_entry = Entry {
                 item: key,
-                count: 1,
+                count,
             };
             std::mem::swap(&mut self.entries[min_index], &mut new_entry);
             Some(new_entry)
@@ -120,11 +120,11 @@ impl<T: Hash + Eq> StackHashCounter<T> {
         s.finish()
     }
 
-    pub fn add(&mut self, key: T) -> Option<Entry<T>> {
+    pub fn add(&mut self, key: T, count: isize) -> Option<Entry<T>> {
         let hash_value = Self::hash(&key);
         let bucket = &mut self.buckets[(hash_value % BUCKETS as u64) as usize];
 
-        bucket.add(key)
+        bucket.add(key, count)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Entry<T>> {
@@ -235,8 +235,8 @@ impl<T: Hash + Eq + 'static> Collector<T> {
         })
     }
 
-    pub fn add(&mut self, key: T) -> std::io::Result<()> {
-        if let Some(evict) = self.map.add(key) {
+    pub fn add(&mut self, key: T, count: isize) -> std::io::Result<()> {
+        if let Some(evict) = self.map.add(key, count) {
             self.temp_array.push(evict)?;
         }
 
@@ -259,9 +259,9 @@ mod tests {
     #[test]
     fn stack_hash_counter() {
         let mut stack_hash_counter = StackHashCounter::<usize>::default();
-        stack_hash_counter.add(0);
-        stack_hash_counter.add(1);
-        stack_hash_counter.add(1);
+        stack_hash_counter.add(0, 1);
+        stack_hash_counter.add(1, 1);
+        stack_hash_counter.add(1, 1);
 
         stack_hash_counter.iter().for_each(|item| {
             if item.item == 0 {
@@ -274,7 +274,7 @@ mod tests {
         });
     }
 
-    fn add_map(hashmap: &mut BTreeMap<usize, usize>, entry: &Entry<usize>) {
+    fn add_map(hashmap: &mut BTreeMap<usize, isize>, entry: &Entry<usize>) {
         match hashmap.get_mut(&entry.item) {
             None => {
                 hashmap.insert(entry.item, entry.count);
@@ -290,7 +290,7 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                match stack_hash_counter.add(item) {
+                match stack_hash_counter.add(item, 1) {
                     None => {}
                     Some(evict) => {
                         add_map(&mut real_map, &evict);
@@ -304,7 +304,7 @@ mod tests {
         });
 
         for item in 0..(1 << 10) * 4 {
-            let count = item % 4;
+            let count = (item % 4) as isize;
             match real_map.get(&item) {
                 Some(item) => {
                     assert_eq!(*item, count);
@@ -323,7 +323,7 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                collector.add(item).unwrap();
+                collector.add(item, 1).unwrap();
             }
         }
 
@@ -332,7 +332,7 @@ mod tests {
         });
 
         for item in 0..(1 << 10) * 4 {
-            let count = item % 4;
+            let count = (item % 4) as isize;
             match real_map.get(&item) {
                 Some(value) => {
                     assert_eq!(count, *value);
@@ -382,7 +382,7 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                collector.add(item).unwrap();
+                collector.add(item, 1).unwrap();
             }
         }
         unsafe {
@@ -398,7 +398,7 @@ mod tests {
         });
 
         for item in 0..(1 << 10) * 4 {
-            let count = item % 4;
+            let count = (item % 4) as isize;
             match real_map.get(&item) {
                 Some(value) => {
                     assert_eq!(count, *value);
@@ -423,7 +423,7 @@ mod tests {
 
         b.iter(|| {
             vec.iter().for_each(|item| {
-                collector.add(item.clone()).unwrap();
+                collector.add(item.clone(), 1).unwrap();
             });
         });
     }
@@ -441,7 +441,7 @@ mod tests {
 
         b.iter(|| {
             vec.iter().for_each(|item| {
-                collector.add(item.clone());
+                collector.add(item.clone(), 1);
             });
         });
     }

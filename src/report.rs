@@ -8,7 +8,7 @@ use crate::{Error, Result};
 /// The final presentation of a report which is actually an `HashMap` from `Frames` to usize (count).
 pub struct Report {
     /// key is a backtrace captured by profiler and value is count of it.
-    pub data: HashMap<Frames, usize>,
+    pub data: HashMap<Frames, isize>,
 }
 
 /// A builder of `Report`. It builds report from a running `Profiler`.
