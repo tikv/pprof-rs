@@ -1,3 +1,5 @@
+// Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
+
 use crate::frames::UnresolvedFrames;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;

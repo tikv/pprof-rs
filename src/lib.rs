@@ -1,3 +1,5 @@
+// Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
+
 //! pprof-rs is an integrated profiler for rust program.
 //!
 //! This crate provides a programable interface to start/stop/report a profiler dynamically. With the
