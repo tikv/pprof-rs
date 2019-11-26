@@ -62,10 +62,7 @@ impl<T: Eq> Bucket<T> {
                 }
             }
 
-            let mut new_entry = Entry {
-                item: key,
-                count,
-            };
+            let mut new_entry = Entry { item: key, count };
             std::mem::swap(&mut self.entries[min_index], &mut new_entry);
             Some(new_entry)
         }
@@ -323,7 +320,7 @@ mod tests {
         let mut collector = Collector::new().unwrap();
         let mut real_map = BTreeMap::new();
 
-        for item in 0..(1 << 10) * 4 {
+        for item in 0..(1 << 12) * 4 {
             for _ in 0..(item % 4) {
                 collector.add(item, 1).unwrap();
             }
@@ -333,7 +330,7 @@ mod tests {
             add_map(&mut real_map, &entry);
         });
 
-        for item in 0..(1 << 10) * 4 {
+        for item in 0..(1 << 12) * 4 {
             let count = (item % 4) as isize;
             match real_map.get(&item) {
                 Some(value) => {

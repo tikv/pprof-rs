@@ -26,7 +26,7 @@ pub struct Profiler {
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
 pub struct ProfilerGuard<'a> {
     profiler: &'a spin::RwLock<Result<Profiler>>,
-    _timer: Timer,
+    timer: Option<Timer>,
 }
 
 fn trigger_lazy() {
@@ -47,7 +47,7 @@ impl ProfilerGuard<'_> {
             Ok(profiler) => match profiler.start() {
                 Ok(()) => Ok(ProfilerGuard::<'static> {
                     profiler: &PROFILER,
-                    _timer: Timer::new(frequency),
+                    timer: Some(Timer::new(frequency)),
                 }),
                 Err(err) => Err(err),
             },
@@ -62,6 +62,8 @@ impl ProfilerGuard<'_> {
 
 impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
+        drop(self.timer.take());
+
         match self.profiler.write().as_mut() {
             Err(_) => {}
             Ok(profiler) => match profiler.stop() {

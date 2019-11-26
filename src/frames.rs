@@ -71,7 +71,9 @@ impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         if self.thread_id == other.thread_id {
             if self.depth == other.depth {
-                let iter = self.frames[0..self.depth].iter().zip(other.frames[0..other.depth].iter());
+                let iter = self.frames[0..self.depth]
+                    .iter()
+                    .zip(other.frames[0..other.depth].iter());
 
                 iter.map(|(self_frame, other_frame)| {
                     self_frame.symbol_address() == other_frame.symbol_address()
