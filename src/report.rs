@@ -118,7 +118,7 @@ mod flamegraph {
                 .iter()
                 .map(|(key, value)| {
                     let mut line = String::new();
-                    if key.thread_name.len() > 0 {
+                    if !key.thread_name.is_empty() {
                         line.push_str(&key.thread_name);
                     } else {
                         line.push_str(&format!("{:?}", key.thread_id));
@@ -139,7 +139,7 @@ mod flamegraph {
                     line
                 })
                 .collect();
-            if lines.len() > 0 {
+            if !lines.is_empty() {
                 flamegraph::from_lines(
                     &mut flamegraph::Options::default(),
                     lines.iter().map(|s| &**s),
@@ -209,7 +209,7 @@ mod protobuf {
                         line.line = lineno as i64;
                         let mut loc = protos::Location::default();
                         loc.id = id;
-                        loc.line = vec![line].into();
+                        loc.line = vec![line];
                         // the fn_tbl has the same length with loc_tbl
                         fn_tbl.push(function);
                         loc_tbl.push(loc);
@@ -218,8 +218,8 @@ mod protobuf {
                     }
                 }
                 let mut sample = protos::Sample::default();
-                sample.location_id = locs.into();
-                sample.value = vec![*count as i64].into();
+                sample.location_id = locs;
+                sample.value = vec![*count as i64];
                 samples.push(sample);
             }
             let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
@@ -229,11 +229,11 @@ mod protobuf {
             sample_type.r#type = type_idx as i64;
             sample_type.unit = unit_idx as i64;
             let mut profile = protos::Profile::default();
-            profile.sample_type = vec![sample_type].into();
-            profile.sample = samples.into();
-            profile.string_table = str_tbl.into();
-            profile.function = fn_tbl.into();
-            profile.location = loc_tbl.into();
+            profile.sample_type = vec![sample_type];
+            profile.sample = samples;
+            profile.string_table = str_tbl;
+            profile.function = fn_tbl;
+            profile.location = loc_tbl;
             Ok(profile)
         }
     }
