@@ -3,6 +3,7 @@
 `pprof` is a cpu profiler that can be easily integrated into a rust program.
 
 [![Crates.io](https://img.shields.io/crates/v/pprof.svg)](https://crates.io/crates/pprof)
+ [![Dependency Status](https://deps.rs/repo/github/tikv/pprof-rs/status.svg)](https://deps.rs/repo/github/tikv/pprof-rs)
 
 ## Usage
 

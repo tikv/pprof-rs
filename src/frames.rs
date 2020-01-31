@@ -157,14 +157,10 @@ unsafe impl Send for Symbol {}
 impl From<&backtrace::Symbol> for Symbol {
     fn from(symbol: &backtrace::Symbol) -> Self {
         Symbol {
-            name: symbol
-                .name()
-                .and_then(|name| Some(name.as_bytes().to_vec())),
+            name: symbol.name().map(|name| name.as_bytes().to_vec()),
             addr: symbol.addr(),
             lineno: symbol.lineno(),
-            filename: symbol
-                .filename()
-                .and_then(|filename| Some(filename.to_owned())),
+            filename: symbol.filename().map(|filename| filename.to_owned()),
         }
     }
 }

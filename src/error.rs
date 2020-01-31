@@ -1,22 +1,17 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-quick_error! {
-    #[derive(Debug)]
-    pub enum Error {
-        NixError(err: nix::Error) {
-            from()
-            cause(err)
-            description(err.description())
-        }
-        IoError(err: std::io::Error) {
-            from()
-            cause(err)
-            description(err.description())
-        }
-        CreatingError
-        Running
-        NotRunning
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("{0}")]
+    NixError(#[from] nix::Error),
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
+    #[error("create profiler error")]
+    CreatingError,
+    #[error("start running cpu profiler error")]
+    Running,
+    #[error("stop running cpu profiler error")]
+    NotRunning,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

@@ -21,12 +21,10 @@
 //!};
 //! ```
 
-#![feature(test)]
+#![cfg_attr(test, feature(test))]
+
 #[cfg(test)]
 extern crate test;
-
-#[macro_use]
-extern crate quick_error;
 
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
 pub const MAX_DEPTH: usize = 32;
@@ -41,10 +39,10 @@ mod profiler;
 mod report;
 mod timer;
 
-pub use error::{Error, Result};
-pub use frames::{Frames, Symbol};
-pub use profiler::ProfilerGuard;
-pub use report::{Report, ReportBuilder};
+pub use self::error::{Error, Result};
+pub use self::frames::{Frames, Symbol};
+pub use self::profiler::ProfilerGuard;
+pub use self::report::{Report, ReportBuilder};
 
 #[cfg(feature = "protobuf")]
 pub mod protos {
