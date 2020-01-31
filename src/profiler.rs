@@ -1,5 +1,6 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::convert::TryInto;
 use std::os::raw::c_int;
 
 use backtrace::Frame;
@@ -74,6 +75,46 @@ impl<'a> Drop for ProfilerGuard<'a> {
     }
 }
 
+fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
+    let mut len = 0;
+    let mut base = 1;
+
+    while current_thread as u128 > base && len < MAX_THREAD_NAME {
+        base *= 10;
+        len += 1;
+    }
+
+    let mut index = 0;
+    while index < len && base > 1 {
+        base /= 10;
+
+        name[index] = match (48 + (current_thread as u128 / base) % 10).try_into() {
+            Ok(digit) => digit,
+            Err(_) => {
+                log::error!("fail to convert thread_id to string");
+                0
+            }
+        };
+
+        index += 1;
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
+    write_thread_name_fallback(current_thread, name);
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
+    let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
+    let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
+
+    if ret != 0 {
+        write_thread_name_fallback(current_thread, name);
+    }
+}
+
 extern "C" fn perf_signal_handler(_signal: c_int) {
     let mut bt: [Frame; MAX_DEPTH] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
     let mut index = 0;
@@ -91,16 +132,13 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
             let current_thread = unsafe { libc::pthread_self() };
-            let mut name: [libc::c_char; MAX_THREAD_NAME] =
-                unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+            let mut name = [0 as libc::c_char; MAX_THREAD_NAME];
             let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
-            let ret =
-                unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
 
-            if ret == 0 {
-                let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-                profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
-            }
+            write_thread_name(current_thread, &mut name);
+
+            let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
+            profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
         }
     }
 }
