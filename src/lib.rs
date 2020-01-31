@@ -46,5 +46,7 @@ pub use self::report::{Report, ReportBuilder};
 
 #[cfg(feature = "protobuf")]
 pub mod protos {
+    pub use prost::Message;
+
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
 }
