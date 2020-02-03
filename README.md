@@ -2,8 +2,9 @@
 
 `pprof` is a cpu profiler that can be easily integrated into a rust program.
 
+[![Actions Status](https://github.com/tikv/pprof-rs/workflows/build/badge.svg)](https://github.com/tikv/pprof-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/pprof.svg)](https://crates.io/crates/pprof)
- [![Dependency Status](https://deps.rs/repo/github/tikv/pprof-rs/status.svg)](https://deps.rs/repo/github/tikv/pprof-rs)
+[![Dependency Status](https://deps.rs/repo/github/tikv/pprof-rs/status.svg)](https://deps.rs/repo/github/tikv/pprof-rs)
 
 ## Usage
 
