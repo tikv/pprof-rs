@@ -119,15 +119,17 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
     let mut bt: [Frame; MAX_DEPTH] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
     let mut index = 0;
 
-    backtrace::trace(|frame| {
-        if index < MAX_DEPTH {
-            bt[index] = frame.clone();
-            index += 1;
-            true
-        } else {
-            false
-        }
-    });
+    unsafe {
+        backtrace::trace_unsynchronized(|frame| {
+            if index < MAX_DEPTH {
+                bt[index] = frame.clone();
+                index += 1;
+                true
+            } else {
+                false
+            }
+        });
+    }
 
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
