@@ -71,9 +71,7 @@ impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         if self.thread_id == other.thread_id {
             if self.depth == other.depth {
-                let iter = self.frames[0..self.depth]
-                    .iter()
-                    .zip(other.frames[0..other.depth].iter());
+                let iter = self.slice().frames.iter().zip(other.slice().frames.iter());
 
                 iter.map(|(self_frame, other_frame)| {
                     self_frame.symbol_address() == other_frame.symbol_address()
@@ -92,7 +90,8 @@ impl Eq for UnresolvedFrames {}
 
 impl Hash for UnresolvedFrames {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.frames[0..self.depth]
+        self.slice()
+            .frames
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
@@ -204,12 +203,22 @@ pub struct Frames {
 impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
-        frames.frames[0..frames.depth].iter().for_each(|frame| {
+        frames.slice().frames.iter().for_each(|frame| {
             let mut symbols = Vec::new();
             backtrace::resolve_frame(frame, |symbol| {
-                symbols.push(Symbol::from(symbol));
+                let symbol = Symbol::from(symbol);
+
+                // This is used to filter out functions in signal handler
+                // We should use a more robust way to filter
+                let name = &symbol.name();
+                if name != "perf_signal_handler" && name != "Unknown" {
+                    symbols.push(symbol);
+                }
             });
-            fs.push(symbols);
+
+            if !symbols.is_empty() {
+                fs.push(symbols);
+            }
         });
 
         Self {
