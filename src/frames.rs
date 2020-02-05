@@ -71,9 +71,7 @@ impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         if self.thread_id == other.thread_id {
             if self.depth == other.depth {
-                let iter = self.frames[0..self.depth]
-                    .iter()
-                    .zip(other.frames[0..other.depth].iter());
+                let iter = self.slice().frames.iter().zip(other.slice().frames.iter());
 
                 iter.map(|(self_frame, other_frame)| {
                     self_frame.symbol_address() == other_frame.symbol_address()
@@ -92,7 +90,8 @@ impl Eq for UnresolvedFrames {}
 
 impl Hash for UnresolvedFrames {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.frames[0..self.depth]
+        self.slice()
+            .frames
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
@@ -204,12 +203,32 @@ pub struct Frames {
 impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
-        frames.frames[0..frames.depth].iter().for_each(|frame| {
+
+        // These variables are used to filter out signal handler functions
+        // We should find a more robust way to do this. On way is to extend
+        // backtrace-rs to get signal handler information from it.
+        let after_signal_handler = &mut -1;
+        let is_signal_handler = &mut false;
+
+        frames.slice().frames.iter().for_each(|frame| {
             let mut symbols = Vec::new();
+
             backtrace::resolve_frame(frame, |symbol| {
-                symbols.push(Symbol::from(symbol));
+                let symbol = Symbol::from(symbol);
+                if &symbol.name() == "perf_signal_handler" {
+                    *is_signal_handler = true;
+                }
+
+                symbols.push(symbol);
             });
-            fs.push(symbols);
+
+            if !symbols.is_empty() && *after_signal_handler > 0 {
+                fs.push(symbols);
+            }
+
+            if *is_signal_handler {
+                *after_signal_handler += 1;
+            }
         });
 
         Self {
