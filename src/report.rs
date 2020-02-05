@@ -224,7 +224,7 @@ mod protobuf {
             }
             let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
             str_tbl.push("cpu".to_owned());
-            str_tbl.push("nanosecond".to_owned());
+            str_tbl.push("count".to_owned());
             let mut sample_type = protos::ValueType::default();
             sample_type.r#type = type_idx as i64;
             sample_type.unit = unit_idx as i64;
