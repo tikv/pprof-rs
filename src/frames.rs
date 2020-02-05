@@ -203,21 +203,31 @@ pub struct Frames {
 impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
+
+        // These variables are used to filter out signal handler functions
+        // We should find a more robust way to do this. On way is to extend
+        // backtrace-rs to get signal handler information from it.
+        let after_signal_handler = &mut -1;
+        let is_signal_handler = &mut false;
+
         frames.slice().frames.iter().for_each(|frame| {
             let mut symbols = Vec::new();
+
             backtrace::resolve_frame(frame, |symbol| {
                 let symbol = Symbol::from(symbol);
-
-                // This is used to filter out functions in signal handler
-                // We should use a more robust way to filter
-                let name = &symbol.name();
-                if name != "perf_signal_handler" && name != "Unknown" {
-                    symbols.push(symbol);
+                if &symbol.name() == "perf_signal_handler" {
+                    *is_signal_handler = true;
                 }
+
+                symbols.push(symbol);
             });
 
-            if !symbols.is_empty() {
+            if !symbols.is_empty() && *after_signal_handler > 0 {
                 fs.push(symbols);
+            }
+
+            if *is_signal_handler {
+                *after_signal_handler += 1;
             }
         });
 
