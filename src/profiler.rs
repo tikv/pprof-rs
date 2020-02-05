@@ -116,23 +116,24 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 }
 
 extern "C" fn perf_signal_handler(_signal: c_int) {
-    let mut bt: [Frame; MAX_DEPTH] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let mut index = 0;
-
-    unsafe {
-        backtrace::trace_unsynchronized(|frame| {
-            if index < MAX_DEPTH {
-                bt[index] = frame.clone();
-                index += 1;
-                true
-            } else {
-                false
-            }
-        });
-    }
-
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
+            let mut bt: [Frame; MAX_DEPTH] =
+                unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+            let mut index = 0;
+
+            unsafe {
+                backtrace::trace_unsynchronized(|frame| {
+                    if index < MAX_DEPTH {
+                        bt[index] = frame.clone();
+                        index += 1;
+                        true
+                    } else {
+                        false
+                    }
+                });
+            }
+
             let current_thread = unsafe { libc::pthread_self() };
             let mut name = [0 as libc::c_char; MAX_THREAD_NAME];
             let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
@@ -188,7 +189,7 @@ impl Profiler {
         }
     }
 
-    pub fn register_signal_handler(&self) -> Result<()> {
+    fn register_signal_handler(&self) -> Result<()> {
         let handler = signal::SigHandler::Handler(perf_signal_handler);
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
 
