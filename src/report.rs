@@ -153,6 +153,7 @@ mod flamegraph {
     }
 }
 
+#[cfg(feature = "protobuf")]
 mod protobuf {
     use super::*;
     use crate::protos;
