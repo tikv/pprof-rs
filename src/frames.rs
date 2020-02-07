@@ -191,11 +191,18 @@ impl PartialEq for Symbol {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct SampleFrame {
+    pub symbols: Vec<Symbol>,
+    pub symbol_address: u64,
+    pub ip: u64,
+}
+
 /// A representation of a backtrace. `thread_name` and `thread_id` was got from `pthread_getname_np`
 /// and `pthread_self`. frames is a vector of symbols.
 #[derive(Debug, Clone)]
 pub struct Frames {
-    pub frames: Vec<Vec<Symbol>>,
+    pub frames: Vec<SampleFrame>,
     pub thread_name: String,
     pub thread_id: u64,
 }
@@ -223,7 +230,12 @@ impl From<UnresolvedFrames> for Frames {
             });
 
             if !symbols.is_empty() && *after_signal_handler > 0 {
-                fs.push(symbols);
+                let sample_frame = SampleFrame {
+                    symbols,
+                    symbol_address: frame.symbol_address() as u64,
+		    ip: frame.ip() as u64,
+                };
+                fs.push(sample_frame);
             }
 
             if *is_signal_handler {
@@ -250,8 +262,8 @@ impl PartialEq for Frames {
                 let iter = self.frames.iter().zip(other.frames.iter());
 
                 iter.map(|(self_frame, other_frame)| {
-                    if self_frame.len() == other_frame.len() {
-                        let iter = self_frame.iter().zip(other_frame.iter());
+                    if self_frame.symbols.len() == other_frame.symbols.len() {
+                        let iter = self_frame.symbols.iter().zip(other_frame.symbols.iter());
                         iter.map(|(self_symbol, other_symbol)| self_symbol == other_symbol)
                             .all(|result| result)
                     } else {
@@ -273,7 +285,7 @@ impl Eq for Frames {}
 impl Hash for Frames {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.frames.iter().for_each(|frame| {
-            frame.iter().for_each(|symbol| match &symbol.name {
+            frame.symbols.iter().for_each(|symbol| match &symbol.name {
                 Some(name) => name.hash(state),
                 None => 0.hash(state),
             })
@@ -286,7 +298,7 @@ impl Display for Frames {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for frame in self.frames.iter() {
             write!(f, "FRAME: ")?;
-            for symbol in frame.iter() {
+            for symbol in frame.symbols.iter() {
                 write!(f, "{} -> ", symbol)?;
             }
         }

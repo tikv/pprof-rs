@@ -126,7 +126,7 @@ mod flamegraph {
                     line.push(';');
 
                     for frame in key.frames.iter().rev() {
-                        for symbol in frame.iter().rev() {
+                        for symbol in frame.symbols.iter().rev() {
                             line.push_str(&format!("{}/", symbol));
                         }
                         line.pop().unwrap_or_default();
@@ -153,87 +153,130 @@ mod flamegraph {
     }
 }
 
-#[cfg(feature = "protobuf")]
 mod protobuf {
     use super::*;
     use crate::protos;
-    use std::collections::HashSet;
+
+    struct LookupTable<T: std::cmp::Eq + std::hash::Hash, E> {
+        pub map: HashMap<T, usize>,
+        pub table: Vec<E>,
+    }
+
+    impl<T, E> LookupTable<T, E>
+    where
+        T: std::cmp::Eq + std::hash::Hash,
+    {
+        pub fn new() -> Self {
+            Self {
+                map: HashMap::new(),
+                table: Vec::new(),
+            }
+        }
+
+        pub fn lookup_or_insert(&mut self, key: T, content: E) -> (usize, &mut E) {
+            let idx = if let Some(idx) = self.map.get(&key) {
+                *idx
+            } else {
+                let idx = self.table.len();
+                self.table.push(content);
+                self.map.insert(key, idx);
+
+                idx
+            };
+
+	    let ret = &mut self.table[idx];
+
+	    (idx, ret)
+        }
+    }
 
     impl Report {
         // `pprof` will generate google's pprof format report
         pub fn pprof(&self) -> crate::Result<protos::Profile> {
-            let mut dudup_str = HashSet::new();
-            for key in self.data.iter().map(|(key, _)| key) {
-                for frame in key.frames.iter() {
-                    for symbol in frame {
-                        dudup_str.insert(symbol.name());
-                        dudup_str.insert(symbol.sys_name().to_owned());
-                        dudup_str.insert(symbol.filename().to_owned());
-                    }
-                }
-            }
+	    let mut string_table = LookupTable::new();
             // string table's first element must be an empty string
-            let mut str_tbl = vec!["".to_owned()];
-            str_tbl.extend(dudup_str.into_iter());
+	    string_table.lookup_or_insert("".to_owned(), "".to_owned());
 
-            let mut strings = HashMap::new();
-            for (index, name) in str_tbl.iter().enumerate() {
-                strings.insert(name, index);
-            }
+	    let mut location_table = LookupTable::new();
+	    let mut function_table = LookupTable::new();
 
             let mut samples = vec![];
-            let mut loc_tbl = vec![];
-            let mut fn_tbl = vec![];
-            let mut functions = HashMap::new();
+
             for (key, count) in self.data.iter() {
-                let mut locs = vec![];
+                let mut locations = vec![];
+
                 for frame in key.frames.iter() {
-                    for symbol in frame {
-                        let name = symbol.name();
-                        if let Some(loc_idx) = functions.get(&name) {
-                            locs.push(*loc_idx);
-                            continue;
-                        }
+                    let mut location = protos::Location::default();
+                    location.address = frame.ip;
+                    location.line = vec![];
+
+                    for symbol in frame.symbols.iter() {
+			let name = symbol.name();
                         let sys_name = symbol.sys_name();
                         let filename = symbol.filename();
                         let lineno = symbol.lineno();
-                        let mut function = protos::Function::default();
-                        let id = fn_tbl.len() as u64 + 1;
-                        function.id = id;
-                        function.name = *strings.get(&name).unwrap() as i64;
-                        function.system_name = *strings.get(&sys_name.to_owned()).unwrap() as i64;
-                        function.filename = *strings.get(&filename.to_owned()).unwrap() as i64;
-                        functions.insert(name, id);
+
                         let mut line = protos::Line::default();
-                        line.function_id = id;
                         line.line = lineno as i64;
-                        let mut loc = protos::Location::default();
-                        loc.id = id;
-                        loc.line = vec![line];
-                        // the fn_tbl has the same length with loc_tbl
-                        fn_tbl.push(function);
-                        loc_tbl.push(loc);
-                        // current frame locations
-                        locs.push(id);
+
+                        let mut function = protos::Function::default();
+
+                        function.name = string_table.lookup_or_insert(name.clone(), name.clone()).0 as i64;
+                        function.system_name = string_table.lookup_or_insert(sys_name.to_owned(), sys_name.to_owned()).0 as i64;
+                        function.filename = string_table.lookup_or_insert(filename.to_owned(), filename.to_owned()).0 as i64;
+                        function.start_line = lineno as i64; // TODO: get start line of function in backtrace-rs
+
+                        let (idx, function) = function_table.lookup_or_insert(
+                            function.name,
+                            function.clone(),
+                        );
+			(*function).id = idx as u64 + 1;
+                        line.function_id = (*function).id;
+
+                        location.line.push(line);
                     }
+
+                    let (idx, location) = location_table.lookup_or_insert(
+                        location.address,
+                        location.clone(),
+                    );
+
+		    (*location).id = idx as u64 + 1;
+                    locations.push((*location).id);
                 }
+
                 let mut sample = protos::Sample::default();
-                sample.location_id = locs;
+		println!("{:?}", &locations);
+                sample.location_id = locations;
                 sample.value = vec![*count as i64];
+
+                let mut labels = vec![];
+                let mut label = protos::Label::default();
+                label.key = string_table.lookup_or_insert(
+                    "thread".to_owned(),
+                    "thread".to_owned(),
+                ).0 as i64;
+                label.str = string_table.lookup_or_insert(
+                    key.thread_name.clone(),
+                    key.thread_name.clone(),
+                ).0 as i64;
+		labels.push(label);
+
+		sample.label = labels;
                 samples.push(sample);
             }
-            let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
-            str_tbl.push("cpu".to_owned());
-            str_tbl.push("count".to_owned());
+
             let mut sample_type = protos::ValueType::default();
-            sample_type.r#type = type_idx as i64;
-            sample_type.unit = unit_idx as i64;
+            sample_type.r#type = string_table.lookup_or_insert("cpu".to_owned(), "cpu".to_owned()).0 as i64;
+            sample_type.unit = string_table.lookup_or_insert("count".to_owned(), "count".to_owned()).0 as i64;
+
             let mut profile = protos::Profile::default();
             profile.sample_type = vec![sample_type];
             profile.sample = samples;
-            profile.string_table = str_tbl;
-            profile.function = fn_tbl;
-            profile.location = loc_tbl;
+            profile.string_table = string_table.table;
+            profile.function = function_table.table;
+            profile.location = location_table.table;
+	    println!("LOCATION LEN {:?}", &profile.location.len());
             Ok(profile)
         }
     }
