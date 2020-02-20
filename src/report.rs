@@ -158,14 +158,14 @@ mod protobuf {
     use super::*;
     use pprof_protobuf as protos;
 
-    struct LookupTable<T: std::cmp::Eq + std::hash::Hash, E> {
-        pub map: HashMap<T, usize>,
-        pub table: Vec<E>,
+    struct LookupTable<T: HasKey> {
+        pub map: HashMap<T::Key, usize>,
+        pub table: Vec<T>,
     }
 
-    impl<T, E> LookupTable<T, E>
+    impl<T> LookupTable<T>
     where
-        T: std::cmp::Eq + std::hash::Hash,
+        T: HasKey,
     {
         pub fn new() -> Self {
             Self {
@@ -174,12 +174,14 @@ mod protobuf {
             }
         }
 
-        pub fn lookup_or_insert(&mut self, key: T, content: E) -> (usize, &mut E) {
+        pub fn lookup_or_insert(&mut self, item: T) -> (usize, &mut T) {
+            let key = item.get_key();
+
             let idx = if let Some(idx) = self.map.get(&key) {
                 *idx
             } else {
                 let idx = self.table.len();
-                self.table.push(content);
+                self.table.push(item);
                 self.map.insert(key, idx);
 
                 idx
@@ -191,12 +193,41 @@ mod protobuf {
         }
     }
 
+    trait HasKey {
+        type Key: std::cmp::Eq + std::hash::Hash;
+        fn get_key(&self) -> Self::Key;
+    }
+
+    impl HasKey for String {
+        type Key = String;
+
+        fn get_key(&self) -> String {
+            self.clone()
+        }
+    }
+
+    impl HasKey for protos::Function {
+        type Key = i64;
+
+        fn get_key(&self) -> i64 {
+            self.get_name()
+        }
+    }
+
+    impl HasKey for protos::Location {
+        type Key = u64;
+
+        fn get_key(&self) -> u64 {
+            self.get_address()
+        }
+    }
+
     impl Report {
         // `pprof` will generate google's pprof format report
         pub fn pprof(&self) -> crate::Result<protos::ProfileProtobuf> {
             let mut string_table = LookupTable::new();
             // string table's first element must be an empty string
-            string_table.lookup_or_insert("".to_owned(), "".to_owned());
+            string_table.lookup_or_insert(String::new());
 
             let mut location_table = LookupTable::new();
             let mut function_table = LookupTable::new();
@@ -222,23 +253,16 @@ mod protobuf {
 
                         let mut function = protos::Function::default();
 
-                        function.set_name(
-                            string_table.lookup_or_insert(name.clone(), name.clone()).0 as i64,
-                        );
+                        function.set_name(string_table.lookup_or_insert(name.clone()).0 as i64);
                         function.set_system_name(
-                            string_table
-                                .lookup_or_insert(sys_name.to_owned(), sys_name.to_owned())
-                                .0 as i64,
+                            string_table.lookup_or_insert(sys_name.to_owned()).0 as i64,
                         );
                         function.set_filename(
-                            string_table
-                                .lookup_or_insert(filename.to_owned(), filename.to_owned())
-                                .0 as i64,
+                            string_table.lookup_or_insert(filename.to_owned()).0 as i64,
                         );
                         function.set_start_line(lineno as i64); // TODO: get start line of function in backtrace-rs
 
-                        let (idx, function) =
-                            function_table.lookup_or_insert(function.get_name(), function.clone());
+                        let (idx, function) = function_table.lookup_or_insert(function.clone());
                         function.set_id(idx as u64 + 1);
                         line.set_function_id(function.get_id());
 
@@ -246,8 +270,7 @@ mod protobuf {
                     }
                     location.set_line(lines);
 
-                    let (idx, location) =
-                        location_table.lookup_or_insert(location.get_address(), location.clone());
+                    let (idx, location) = location_table.lookup_or_insert(location.clone());
 
                     location.set_id(idx as u64 + 1);
                     locations.push(location.get_id());
@@ -259,16 +282,8 @@ mod protobuf {
 
                 let mut labels = vec![];
                 let mut label = protos::Label::default();
-                label.set_key(
-                    string_table
-                        .lookup_or_insert("thread".to_owned(), "thread".to_owned())
-                        .0 as i64,
-                );
-                label.set_str(
-                    string_table
-                        .lookup_or_insert(key.thread_name.clone(), key.thread_name.clone())
-                        .0 as i64,
-                );
+                label.set_key(string_table.lookup_or_insert("thread".to_owned()).0 as i64);
+                label.set_str(string_table.lookup_or_insert(key.thread_name.clone()).0 as i64);
                 labels.push(label);
 
                 sample.set_label(labels);
@@ -276,16 +291,8 @@ mod protobuf {
             }
 
             let mut sample_type = protos::ValueType::default();
-            sample_type.set_type(
-                string_table
-                    .lookup_or_insert("cpu".to_owned(), "cpu".to_owned())
-                    .0 as i64,
-            );
-            sample_type.set_unit(
-                string_table
-                    .lookup_or_insert("count".to_owned(), "count".to_owned())
-                    .0 as i64,
-            );
+            sample_type.set_type(string_table.lookup_or_insert("cpu".to_owned()).0 as i64);
+            sample_type.set_unit(string_table.lookup_or_insert("count".to_owned()).0 as i64);
 
             let mut profile = protos::Profile::default();
             profile.set_sample_type(vec![sample_type]);
