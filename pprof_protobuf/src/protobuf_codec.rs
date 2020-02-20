@@ -1,5 +1,7 @@
 // Copyright 2020 TiKV Project Authors. Licensed under Apache-2.0.
 
+#![allow(clippy::all)]
+
 use super::inner;
 
 macro_rules! convert_vec {
