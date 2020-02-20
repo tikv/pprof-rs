@@ -51,6 +51,8 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
+      - name: Install Protoc
+        uses: Arduino/actions/setup-protoc@master
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
