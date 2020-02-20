@@ -6,8 +6,8 @@ jobs:
   lint:
     name: Format and Clippy
     strategy:
-       matrix:
-         os: [ubuntu-latest, macos-latest]
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -28,11 +28,23 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Run cargo clippy
+      - name: Run cargo clippy - flamegraph
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features -- -D warnings
+          args: --features flamegraph -- -D warnings
+
+      - name: Run cargo clippy - prost-protobuf
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features prost-protobuf -- -D warnings
+
+      - name: Run cargo clippy - rust-protobuf
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features rust-protobuf -- -D warnings
 
   test:
     name: Test
@@ -59,3 +71,21 @@ jobs:
         with:
           command: test
           args: --all-features
+
+      - name: Run cargo test - flamegraph
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features flamegraph
+
+      - name: Run cargo test - prost-protobuf
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features prost-protobuf
+
+      - name: Run cargo test - rust-protobuf
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features rust-protobuf
