@@ -22,7 +22,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Install Protoc
-        uses: YangKeao/setup-protoc@master
+        uses: YangKeao/setup-protoc@remove-api-call
         with:
           version: '3.11.4'
 
@@ -68,7 +68,7 @@ jobs:
           toolchain: nightly
           override: true
       - name: Install Protoc
-        uses: YangKeao/setup-protoc@master
+        uses: YangKeao/setup-protoc@remove-api-call
         with:
           version: '3.11.4'
 
