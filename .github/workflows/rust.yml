@@ -22,7 +22,9 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Install Protoc
-        uses: Arduino/actions/setup-protoc@master
+        uses: YangKeao/setup-protoc@master
+        with:
+          version: '3.11.4'
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -66,7 +68,9 @@ jobs:
           toolchain: nightly
           override: true
       - name: Install Protoc
-        uses: Arduino/actions/setup-protoc@master
+        uses: YangKeao/setup-protoc@master
+        with:
+          version: '3.11.4'
 
       - name: Run cargo test - flamegraph
         uses: actions-rs/cargo@v1
