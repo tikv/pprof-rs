@@ -97,7 +97,7 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
 
 ## Use with `pprof`
 
-With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format. 
+With `prost-protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format. 
 
 ```rust
 match guard.report().build() {
@@ -124,6 +124,8 @@ Then you can use `pprof` command with `profile.pb`. For example:
 Then `pprof` will generate a svg file according to the profile.
 
 ![tree](https://user-images.githubusercontent.com/5244316/68571082-1f50ff80-049d-11ea-8437-211ab0d80480.png)
+
+With feature `rust-protobuf`, you can also use `rust-protobuf` to generate protobuf. See [example about it](https://github.com/tikv/pprof-rs/blob/master/examples/profile_rust_protobuf.rs)
 
 ## Why not ...
 

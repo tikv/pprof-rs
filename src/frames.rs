@@ -233,7 +233,7 @@ impl From<UnresolvedFrames> for Frames {
                 let sample_frame = SampleFrame {
                     symbols,
                     symbol_address: frame.symbol_address() as u64,
-		    ip: frame.ip() as u64,
+                    ip: frame.ip() as u64,
                 };
                 fs.push(sample_frame);
             }

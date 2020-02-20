@@ -44,9 +44,6 @@ pub use self::frames::{Frames, Symbol};
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
 
-#[cfg(feature = "protobuf")]
 pub mod protos {
-    pub use prost::Message;
-
-    include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
+    pub use pprof_protobuf::Message;
 }

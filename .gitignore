@@ -17,3 +17,5 @@ Cargo.lock
 /target
 #**/*.rs.bk
 #Cargo.lock
+
+/pprof_protobuf/src/profile.rs
