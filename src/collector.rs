@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 
-pub const BUCKETS: usize = (1 << 12);
+pub const BUCKETS: usize = 1 << 12;
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
 pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
