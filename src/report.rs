@@ -153,7 +153,7 @@ mod flamegraph {
     }
 }
 
-#[cfg(any(feature = "prost-protobuf", feature="rust-protobuf"))]
+#[cfg(any(feature = "prost-protobuf", feature = "rust-protobuf"))]
 mod protobuf {
     use super::*;
     use pprof_protobuf as protos;
@@ -222,16 +222,18 @@ mod protobuf {
 
                         let mut function = protos::Function::default();
 
-                        function.set_name(string_table.lookup_or_insert(name.clone(), name.clone()).0 as i64);
+                        function.set_name(
+                            string_table.lookup_or_insert(name.clone(), name.clone()).0 as i64,
+                        );
                         function.set_system_name(
                             string_table
                                 .lookup_or_insert(sys_name.to_owned(), sys_name.to_owned())
-                                .0 as i64
+                                .0 as i64,
                         );
                         function.set_filename(
                             string_table
                                 .lookup_or_insert(filename.to_owned(), filename.to_owned())
-                                .0 as i64
+                                .0 as i64,
                         );
                         function.set_start_line(lineno as i64); // TODO: get start line of function in backtrace-rs
 
@@ -257,12 +259,16 @@ mod protobuf {
 
                 let mut labels = vec![];
                 let mut label = protos::Label::default();
-                label.set_key(string_table
-                    .lookup_or_insert("thread".to_owned(), "thread".to_owned())
-                    .0 as i64);
-                label.set_str(string_table
-                    .lookup_or_insert(key.thread_name.clone(), key.thread_name.clone())
-                    .0 as i64);
+                label.set_key(
+                    string_table
+                        .lookup_or_insert("thread".to_owned(), "thread".to_owned())
+                        .0 as i64,
+                );
+                label.set_str(
+                    string_table
+                        .lookup_or_insert(key.thread_name.clone(), key.thread_name.clone())
+                        .0 as i64,
+                );
                 labels.push(label);
 
                 sample.set_label(labels);
@@ -270,12 +276,16 @@ mod protobuf {
             }
 
             let mut sample_type = protos::ValueType::default();
-            sample_type.set_type(string_table
-                .lookup_or_insert("cpu".to_owned(), "cpu".to_owned())
-                .0 as i64);
-            sample_type.set_unit(string_table
-                .lookup_or_insert("count".to_owned(), "count".to_owned())
-                .0 as i64);
+            sample_type.set_type(
+                string_table
+                    .lookup_or_insert("cpu".to_owned(), "cpu".to_owned())
+                    .0 as i64,
+            );
+            sample_type.set_unit(
+                string_table
+                    .lookup_or_insert("count".to_owned(), "count".to_owned())
+                    .0 as i64,
+            );
 
             let mut profile = protos::Profile::default();
             profile.set_sample_type(vec![sample_type]);

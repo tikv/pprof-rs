@@ -2,7 +2,10 @@ use super::inner;
 
 macro_rules! convert_vec {
     ($vec:ident, $type_name:ident) => {
-        $vec.into_iter().map(|item| item.into()).collect::<Vec<inner::$type_name>>().into()
+        $vec.into_iter()
+            .map(|item| item.into())
+            .collect::<Vec<inner::$type_name>>()
+            .into()
     };
 }
 
@@ -23,9 +26,9 @@ macro_rules! into_inner {
 
 into_inner!(Profile, ValueType, Sample, Mapping, Location, Function, Label, Line);
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Profile {
-    inner: inner::Profile
+    inner: inner::Profile,
 }
 
 impl Profile {
@@ -52,7 +55,7 @@ impl Profile {
     pub fn set_mapping(&mut self, v: Vec<Mapping>) {
         self.inner.mapping = convert_vec!(v, Mapping)
     }
-    
+
     pub fn clear_location(&mut self) {
         self.inner.location.clear();
     }
@@ -80,7 +83,7 @@ impl Profile {
     pub fn get_drop_frames(&self) -> i64 {
         self.inner.drop_frames
     }
-    
+
     pub fn clear_drop_frames(&mut self) {
         self.inner.drop_frames = 0;
     }
@@ -92,7 +95,7 @@ impl Profile {
     pub fn get_keep_frames(&self) -> i64 {
         self.inner.keep_frames
     }
-    
+
     pub fn clear_keep_frames(&mut self) {
         self.inner.keep_frames = 0;
     }
@@ -100,11 +103,11 @@ impl Profile {
     pub fn set_keep_frames(&mut self, v: i64) {
         self.inner.keep_frames = v;
     }
-    
+
     pub fn get_time_nanos(&self) -> i64 {
         self.inner.time_nanos
     }
-    
+
     pub fn clear_time_nanos(&mut self) {
         self.inner.time_nanos = 0;
     }
@@ -116,7 +119,7 @@ impl Profile {
     pub fn get_duration_nanos(&self) -> i64 {
         self.inner.duration_nanos
     }
-    
+
     pub fn clear_duration_nanos(&mut self) {
         self.inner.duration_nanos = 0;
     }
@@ -156,11 +159,11 @@ impl Profile {
     pub fn take_comment(&mut self) -> Vec<i64> {
         ::std::mem::replace(&mut self.inner.comment, Vec::new())
     }
-    
+
     pub fn get_default_sample_type(&self) -> i64 {
         self.inner.default_sample_type
     }
-    
+
     pub fn clear_default_sample_type(&mut self) {
         self.inner.default_sample_type = 0;
     }
@@ -170,9 +173,9 @@ impl Profile {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct ValueType {
-    inner: inner::ValueType
+    inner: inner::ValueType,
 }
 
 impl ValueType {
@@ -219,9 +222,9 @@ impl ValueType {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Sample {
-    inner: inner::Sample
+    inner: inner::Sample,
 }
 
 impl Sample {
@@ -270,16 +273,16 @@ impl Sample {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Label {
-    inner: inner::Label
+    inner: inner::Label,
 }
 
 impl Label {
     pub fn get_key(&self) -> i64 {
         self.inner.key
     }
-    
+
     pub fn clear_key(&mut self) {
         self.inner.key = 0;
     }
@@ -325,9 +328,9 @@ impl Label {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Mapping {
-    inner: inner::Mapping
+    inner: inner::Mapping,
 }
 
 impl Mapping {
@@ -403,7 +406,6 @@ impl Mapping {
         self.inner.build_id = v;
     }
 
-
     pub fn get_has_functions(&self) -> bool {
         self.inner.has_functions
     }
@@ -453,9 +455,9 @@ impl Mapping {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Location {
-    inner: inner::Location
+    inner: inner::Location,
 }
 
 impl Location {
@@ -516,9 +518,9 @@ impl Location {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Line {
-    inner: inner::Line
+    inner: inner::Line,
 }
 
 impl Line {
@@ -547,9 +549,9 @@ impl Line {
     }
 }
 
-#[derive(PartialEq,Clone,Default)]
+#[derive(PartialEq, Clone, Default)]
 pub struct Function {
-    inner: inner::Function
+    inner: inner::Function,
 }
 
 impl Function {
