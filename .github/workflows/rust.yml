@@ -34,17 +34,17 @@ jobs:
           command: clippy
           args: --features flamegraph -- -D warnings
 
-      - name: Run cargo clippy - prost-protobuf
+      - name: Run cargo clippy - prost-codec
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --features prost-protobuf -- -D warnings
+          args: --features prost-codec -- -D warnings
 
-      - name: Run cargo clippy - rust-protobuf
+      - name: Run cargo clippy - protobuf-codec
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --features rust-protobuf -- -D warnings
+          args: --features protobuf-codec -- -D warnings
 
   test:
     name: Test
@@ -70,14 +70,14 @@ jobs:
           command: test
           args: --features flamegraph
 
-      - name: Run cargo test - prost-protobuf
+      - name: Run cargo test - prost-codec
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features prost-protobuf
+          args: --features prost-codec
 
-      - name: Run cargo test - rust-protobuf
+      - name: Run cargo test - protobuf-codec
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --features rust-protobuf
+          args: --features protobuf-codec
