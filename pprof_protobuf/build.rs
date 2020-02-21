@@ -17,7 +17,7 @@ fn build(dest_path: PathBuf) {
 fn build(dest_path: PathBuf) {
     use std::fs::File;
     use std::io::Write;
-    
+
     protobuf_build::Builder::new()
         .append_include("proto/".to_owned())
         .files(&["proto/profile.proto"])
