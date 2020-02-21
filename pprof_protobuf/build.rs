@@ -26,7 +26,7 @@ fn build(dest_path: PathBuf) {
 
     let mut mod_file = File::create(dest_path.join("mod.rs")).unwrap();
     mod_file
-        .write_all("mod profile;pub use profile::*;".as_bytes())
+        .write_all(b"mod profile;pub use profile::*;")
         .expect("Unable to write mod file");
 }
 
