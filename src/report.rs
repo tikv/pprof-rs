@@ -153,7 +153,7 @@ mod flamegraph {
     }
 }
 
-#[cfg(any(feature = "prost-protobuf", feature = "rust-protobuf"))]
+#[cfg(any(feature = "prost-codec", feature = "protobuf-codec"))]
 mod protobuf {
     use super::*;
     use pprof_protobuf as protos;

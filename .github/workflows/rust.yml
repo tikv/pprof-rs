@@ -21,10 +21,6 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1.1.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1
@@ -67,10 +63,6 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v1.1.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run cargo test - flamegraph
         uses: actions-rs/cargo@v1

@@ -183,32 +183,32 @@ pub struct ValueType {
 }
 
 impl ValueType {
-    #[cfg(feature = "rust-protobuf")]
+    #[cfg(feature = "protobuf-codec")]
     pub fn get_type(&self) -> i64 {
         self.inner.field_type
     }
 
-    #[cfg(feature = "rust-protobuf")]
+    #[cfg(feature = "protobuf-codec")]
     pub fn clear_type(&mut self) {
         self.inner.field_type = 0;
     }
 
-    #[cfg(feature = "rust-protobuf")]
+    #[cfg(feature = "protobuf-codec")]
     pub fn set_type(&mut self, v: i64) {
         self.inner.field_type = v;
     }
 
-    #[cfg(feature = "prost-protobuf")]
+    #[cfg(feature = "prost-codec")]
     pub fn get_type(&self) -> i64 {
         self.inner.r#type
     }
 
-    #[cfg(feature = "prost-protobuf")]
+    #[cfg(feature = "prost-codec")]
     pub fn clear_type(&mut self) {
         self.inner.r#type = 0;
     }
 
-    #[cfg(feature = "prost-protobuf")]
+    #[cfg(feature = "prost-codec")]
     pub fn set_type(&mut self, v: i64) {
         self.inner.r#type = v;
     }

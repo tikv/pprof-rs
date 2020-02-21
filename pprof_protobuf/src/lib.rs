@@ -2,16 +2,16 @@
 
 #![allow(dead_code)]
 
-#[cfg(feature = "prost-protobuf")]
+#[cfg(feature = "prost-codec")]
 mod inner {
     pub use prost::Message;
 
-    include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
+    include!(concat!(env!("OUT_DIR"), "/protos/perftools.profiles.rs"));
 }
 
-#[cfg(feature = "rust-protobuf")]
+#[cfg(feature = "protobuf-codec")]
 mod profile;
-#[cfg(feature = "rust-protobuf")]
+#[cfg(feature = "protobuf-codec")]
 mod inner {
     pub use protobuf::Message;
 

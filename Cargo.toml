@@ -11,8 +11,8 @@ readme = "README.md"
 
 [features]
 flamegraph = ["inferno"]
-prost-protobuf = ["pprof-protobuf/prost-protobuf"]
-rust-protobuf = ["pprof-protobuf/rust-protobuf"]
+prost-codec = ["pprof-protobuf/prost-codec"]
+protobuf-codec = ["pprof-protobuf/protobuf-codec"]
 
 [dependencies]
 backtrace = "0.3"
@@ -27,7 +27,7 @@ thiserror = "1.0"
 
 inferno = { version = "0.9", default-features = false, features = ["nameattr"], optional = true }
 
-pprof-protobuf = {path = "./pprof_protobuf", optional = true}
+pprof-protobuf = {path = "./pprof_protobuf", optional = true, default-features = false}
 
 [dev-dependencies]
 rand = "0.7.2"
@@ -43,11 +43,11 @@ required-features = ["flamegraph"]
 
 [[example]]
 name = "profile_prost"
-required-features = ["prost-protobuf"]
+required-features = ["prost-codec"]
 
 [[example]]
 name = "profile_rust_protobuf"
-required-features = ["rust-protobuf"]
+required-features = ["protobuf-codec"]
 
 [[example]]
 name = "multithread_flamegraph"

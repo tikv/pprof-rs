@@ -5,8 +5,9 @@ authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2018"
 
 [features]
-prost-protobuf = ["prost", "prost-derive", "prost-build"]
-rust-protobuf = ["protobuf", "protoc-rust"]
+default = ["protobuf-codec"]
+prost-codec = ["prost", "prost-derive", "protobuf-build/prost-codec"]
+protobuf-codec = ["protobuf", "protobuf-build/protobuf-codec"]
 
 [dependencies]
 prost = { version = "0.6", optional = true }
@@ -14,5 +15,4 @@ prost-derive = { version = "0.6", optional = true }
 protobuf = { version = "2.10", optional = true }
 
 [build-dependencies]
-prost-build = { version = "0.6", optional = true }
-protoc-rust = { version = "2.10.1", optional = true }
+protobuf-build = { version = "0.10.0", optional = true, default-features = false }

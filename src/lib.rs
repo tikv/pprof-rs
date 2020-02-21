@@ -44,7 +44,7 @@ pub use self::frames::{Frames, Symbol};
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
 
-#[cfg(any(feature = "rust-protobuf", feature = "prost-protobuf"))]
+#[cfg(any(feature = "protobuf-codec", feature = "prost-codec"))]
 pub mod protos {
     pub use pprof_protobuf::Message;
 }
