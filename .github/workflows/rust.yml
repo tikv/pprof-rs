@@ -6,8 +6,8 @@ jobs:
   lint:
     name: Format and Clippy
     strategy:
-       matrix:
-         os: [ubuntu-latest, macos-latest]
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -28,11 +28,23 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Run cargo clippy
+      - name: Run cargo clippy - flamegraph
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features -- -D warnings
+          args: --features flamegraph -- -D warnings
+
+      - name: Run cargo clippy - prost-codec
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features prost-codec -- -D warnings
+
+      - name: Run cargo clippy - protobuf-codec
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features protobuf-codec -- -D warnings
 
   test:
     name: Test
@@ -52,8 +64,20 @@ jobs:
           toolchain: nightly
           override: true
 
-      - name: Run cargo test
+      - name: Run cargo test - flamegraph
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features
+          args: --features flamegraph
+
+      - name: Run cargo test - prost-codec
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features prost-codec
+
+      - name: Run cargo test - protobuf-codec
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --features protobuf-codec
