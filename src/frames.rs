@@ -1,11 +1,11 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use backtrace::Frame;
-use rustc_demangle::demangle;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
+use symbolic_demangle::demangle;
 
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
@@ -310,5 +310,41 @@ impl Display for Frames {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn demangle_rust() {
+        let symbol = Symbol {
+            name: Some(b"_ZN3foo3barE".to_vec()),
+            addr: None,
+            lineno: None,
+            filename: None,
+        };
+
+        assert_eq!(&symbol.name(), "foo::bar")
+    }
+
+    #[test]
+    fn demangle_cpp() {
+        let name =
+            b"_ZNK3MapI10StringName3RefI8GDScriptE10ComparatorIS0_E16DefaultAllocatorE3hasERKS0_"
+                .to_vec();
+
+        let symbol = Symbol {
+            name: Some(name),
+            addr: None,
+            lineno: None,
+            filename: None,
+        };
+
+        assert_eq!(
+            &symbol.name(),
+            "Map<StringName, Ref<GDScript>, Comparator<StringName>, DefaultAllocator>::has"
+        )
     }
 }
