@@ -190,4 +190,3 @@ Unit tests have been added to guarantee there is no `malloc` in sample functions
 ## TODO
 
 1. Restore the original SIGPROF handler after stopping the profiler.
-2. Support generating [pprof format results](https://github.com/google/pprof/blob/master/proto/profile.proto)
