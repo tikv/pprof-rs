@@ -29,6 +29,7 @@ prost = { version = "0.6", optional = true }
 prost-derive = { version = "0.6", optional = true }
 
 [dev-dependencies]
+criterion = "0.3"
 rand = "0.7.2"
 
 [build-dependencies]
@@ -45,6 +46,11 @@ required-features = ["protobuf"]
 [[example]]
 name = "multithread_flamegraph"
 required-features = ["flamegraph"]
+
+[[bench]]
+name = "collector"
+path = "benches/collector.rs"
+harness = false
 
 [package.metadata.docs.rs]
 all-features = true

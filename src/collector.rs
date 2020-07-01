@@ -254,7 +254,6 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::BTreeMap;
     use std::ffi::c_void;
-    use test::Bencher;
 
     #[test]
     fn stack_hash_counter() {
@@ -408,41 +407,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[bench]
-    fn write_into_collector(b: &mut Bencher) {
-        let mut collector = Collector::new().unwrap();
-
-        const SIZE: usize = 1000;
-
-        let mut vec: Vec<u64> = Vec::with_capacity(SIZE);
-        for _ in 0..vec.capacity() {
-            vec.push(rand::random());
-        }
-
-        b.iter(|| {
-            vec.iter().for_each(|item| {
-                collector.add(item.clone(), 1).unwrap();
-            });
-        });
-    }
-
-    #[bench]
-    fn write_into_stack_hash_counter(b: &mut Bencher) {
-        let mut collector = StackHashCounter::default();
-
-        const SIZE: usize = 1000;
-
-        let mut vec: Vec<u64> = Vec::with_capacity(SIZE);
-        for _ in 0..vec.capacity() {
-            vec.push(rand::random());
-        }
-
-        b.iter(|| {
-            vec.iter().for_each(|item| {
-                collector.add(item.clone(), 1);
-            });
-        });
     }
 }
