@@ -1,9 +1,12 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use crate::frames::Frames;
-use crate::profiler::Profiler;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+
+use parking_lot::RwLock;
+
+use crate::frames::Frames;
+use crate::profiler::Profiler;
 
 use crate::{Error, Result};
 
@@ -16,11 +19,11 @@ pub struct Report {
 /// A builder of `Report`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
-    profiler: &'a spin::RwLock<Result<Profiler>>,
+    profiler: &'a RwLock<Result<Profiler>>,
 }
 
 impl<'a> ReportBuilder<'a> {
-    pub(crate) fn new(profiler: &'a spin::RwLock<Result<Profiler>>) -> Self {
+    pub(crate) fn new(profiler: &'a RwLock<Result<Profiler>>) -> Self {
         Self {
             frames_post_processor: None,
             profiler,

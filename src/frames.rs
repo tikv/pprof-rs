@@ -1,10 +1,11 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use backtrace::Frame;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
+
+use backtrace::Frame;
 use symbolic_demangle::demangle;
 
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
