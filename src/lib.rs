@@ -21,11 +21,6 @@
 //!};
 //! ```
 
-#![cfg_attr(test, feature(test))]
-
-#[cfg(test)]
-extern crate test;
-
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
 pub const MAX_DEPTH: usize = 32;
 
@@ -39,6 +34,7 @@ mod profiler;
 mod report;
 mod timer;
 
+pub use self::collector::{Collector, StackHashCounter};
 pub use self::error::{Error, Result};
 pub use self::frames::{Frames, Symbol};
 pub use self::profiler::ProfilerGuard;
