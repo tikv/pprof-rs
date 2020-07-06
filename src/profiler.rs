@@ -5,16 +5,17 @@ use std::os::raw::c_int;
 
 use backtrace::Frame;
 use nix::sys::signal;
+use parking_lot::RwLock;
 
 use crate::collector::Collector;
+use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
+use crate::report::ReportBuilder;
 use crate::timer::Timer;
-use crate::Result;
-use crate::{Error, MAX_DEPTH};
-use crate::{ReportBuilder, MAX_THREAD_NAME};
+use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 lazy_static::lazy_static! {
-    pub(crate) static ref PROFILER: spin::RwLock<Result<Profiler>> = spin::RwLock::new(Profiler::new());
+    pub(crate) static ref PROFILER: RwLock<Result<Profiler>> = RwLock::new(Profiler::new());
 }
 
 pub struct Profiler {
@@ -26,13 +27,13 @@ pub struct Profiler {
 
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
 pub struct ProfilerGuard<'a> {
-    profiler: &'a spin::RwLock<Result<Profiler>>,
+    profiler: &'a RwLock<Result<Profiler>>,
     timer: Option<Timer>,
 }
 
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
-    PROFILER.read();
+    let _ = PROFILER.read();
 }
 
 impl ProfilerGuard<'_> {
