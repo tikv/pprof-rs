@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 use parking_lot::RwLock;
 
-use crate::frames::Frames;
+use crate::frames::{Frames, UnresolvedFrames};
 use crate::profiler::Profiler;
 
 use crate::{Error, Result};
@@ -16,7 +16,13 @@ pub struct Report {
     pub data: HashMap<Frames, isize>,
 }
 
-/// A builder of `Report`. It builds report from a running `Profiler`.
+/// The presentation of an unsymbolicated report which is actually an `HashMap` from `UnresolvedFrames` to isize (count).
+pub struct UnresolvedReport {
+    /// key is a backtrace captured by profiler and value is count of it.
+    pub data: HashMap<UnresolvedFrames, isize>,
+}
+
+/// A builder of `Report` and `UnresolvedReport`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
     profiler: &'a RwLock<Result<Profiler>>,
@@ -40,6 +46,41 @@ impl<'a> ReportBuilder<'a> {
             .replace(Box::new(frames_post_processor));
 
         self
+    }
+
+    /// Build an `UnresolvedReport`
+    pub fn build_unresolved(&self) -> Result<UnresolvedReport> {
+        let mut hash_map = HashMap::new();
+
+        match self.profiler.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
+            }
+            Ok(profiler) => {
+                profiler.data.iter()?.for_each(|entry| {
+                    let count = entry.count;
+                    if count > 0 {
+                        let key = &entry.item;
+                        match hash_map.get_mut(key) {
+                            Some(value) => {
+                                *value += count;
+                            }
+                            None => {
+                                match hash_map.insert(key.clone(), count) {
+                                    None => {}
+                                    Some(_) => {
+                                        unreachable!();
+                                    }
+                                };
+                            }
+                        }
+                    }
+                });
+
+                Ok(UnresolvedReport { data: hash_map })
+            }
+        }
     }
 
     /// Build a `Report`.
