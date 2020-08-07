@@ -43,7 +43,7 @@ impl<'a> ReportBuilder<'a> {
     }
 
     /// Build a `Report`.
-    pub fn build(&mut self) -> Result<Report> {
+    pub fn build(&self) -> Result<Report> {
         let mut hash_map = HashMap::new();
 
         match self.profiler.write().as_mut() {
