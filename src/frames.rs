@@ -70,10 +70,13 @@ impl UnresolvedFrames {
 
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
-        if self.thread_id != other.thread_id {
+        let (frames1, frames2) = (self.slice().frames, other.slice().frames);
+        if self.thread_id != other.thread_id || frames1.len() != frames2.len() {
             false
         } else {
-            self.slice().symbol_addresses() == other.slice().symbol_addresses()
+            Iterator::zip(frames1.iter(), frames2.iter())
+                .map(|(s1, s2)| s1.symbol_address() == s2.symbol_address())
+                .all(|equal| equal)
         }
     }
 }
@@ -87,15 +90,6 @@ impl Hash for UnresolvedFrames {
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
-    }
-}
-
-impl UnresolvedFramesSlice<'_> {
-    fn symbol_addresses(&self) -> Vec<*mut c_void> {
-        self.frames
-            .iter()
-            .map(|frame| frame.symbol_address())
-            .collect()
     }
 }
 
