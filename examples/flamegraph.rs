@@ -105,7 +105,7 @@ fn main() {
             let file = File::create("flamegraph.svg").unwrap();
             report.flamegraph(file).unwrap();
 
-            println!("report: {}", &report);
+            println!("report: {:?}", &report);
         }
         Err(_) => {}
     };

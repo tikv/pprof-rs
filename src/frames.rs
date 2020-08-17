@@ -1,6 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::fmt::{Debug, Display, Formatter};
+use std::borrow::Cow;
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
@@ -46,8 +47,7 @@ impl UnresolvedFrames {
         frames[0..depth].clone_from_slice(bt);
 
         let thread_name_length = tn.len();
-        let mut thread_name: [u8; MAX_THREAD_NAME] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let mut thread_name = [0; MAX_THREAD_NAME];
         thread_name[0..thread_name_length].clone_from_slice(tn);
 
         Self {
@@ -70,20 +70,11 @@ impl UnresolvedFrames {
 
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
-        if self.thread_id == other.thread_id {
-            if self.depth == other.depth {
-                let iter = self.slice().frames.iter().zip(other.slice().frames.iter());
-
-                iter.map(|(self_frame, other_frame)| {
-                    self_frame.symbol_address() == other_frame.symbol_address()
-                })
-                .all(|result| result)
-            } else {
-                false
-            }
-        } else {
-            false
+        if self.thread_id != other.thread_id {
+            return false;
         }
+
+        return self.slice().symbol_addresses() == other.slice().symbol_addresses();
     }
 }
 
@@ -96,6 +87,15 @@ impl Hash for UnresolvedFrames {
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
+    }
+}
+
+impl UnresolvedFramesSlice<'_> {
+    fn symbol_addresses(&self) -> Vec<*mut c_void> {
+        self.frames
+            .iter()
+            .map(|frame| frame.symbol_address())
+            .collect()
     }
 }
 
@@ -117,34 +117,26 @@ pub struct Symbol {
 }
 
 impl Symbol {
+    pub fn raw_name(&self) -> &[u8] {
+        self.name
+            .as_ref()
+            .map(|data| data.as_slice())
+            .unwrap_or(b"Unknow")
+    }
+
     pub fn name(&self) -> String {
-        match &self.name {
-            Some(name) => match std::str::from_utf8(&name) {
-                Ok(name) => format!("{}", demangle(name)),
-                Err(_) => "NonUtf8Name".to_owned(),
-            },
-            None => "Unknown".to_owned(),
-        }
+        demangle(&String::from_utf8_lossy(self.raw_name())).into_owned()
     }
 
-    pub fn sys_name(&self) -> &str {
-        match &self.name {
-            Some(name) => match std::str::from_utf8(&name) {
-                Ok(name) => name,
-                Err(_) => "NonUtf8Name",
-            },
-            None => "Unknown",
-        }
+    pub fn sys_name(&self) -> Cow<str> {
+        String::from_utf8_lossy(self.raw_name())
     }
 
-    pub fn filename(&self) -> &str {
-        match &self.filename {
-            Some(name) => match name.as_os_str().to_str() {
-                Some(name) => name,
-                None => "NonUtf8Name",
-            },
-            None => "Unknown",
-        }
+    pub fn filename(&self) -> Cow<str> {
+        self.filename
+            .as_ref()
+            .map(|name| name.as_os_str().to_string_lossy())
+            .unwrap_or_else(|| Cow::Borrowed("Unknow"))
     }
 
     pub fn lineno(&self) -> u32 {
@@ -166,35 +158,26 @@ impl From<&backtrace::Symbol> for Symbol {
 }
 
 impl Display for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        match &self.name {
-            Some(name) => match std::str::from_utf8(&name) {
-                Ok(name) => write!(f, "{}", demangle(name))?,
-                Err(_) => write!(f, "NonUtf8Name")?,
-            },
-            None => {
-                write!(f, "Unknown")?;
-            }
-        }
-        Ok(())
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str(&self.name())
     }
 }
 
 impl PartialEq for Symbol {
     fn eq(&self, other: &Self) -> bool {
-        match &self.name {
-            Some(name) => match &other.name {
-                Some(other_name) => name == other_name,
-                None => false,
-            },
-            None => other.name.is_none(),
-        }
+        self.raw_name() == other.raw_name()
+    }
+}
+
+impl Hash for Symbol {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.raw_name().hash(state)
     }
 }
 
 /// A representation of a backtrace. `thread_name` and `thread_id` was got from `pthread_getname_np`
 /// and `pthread_self`. frames is a vector of symbols.
-#[derive(Debug, Clone)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Frames {
     pub frames: Vec<Vec<Symbol>>,
     pub thread_name: String,
@@ -205,85 +188,43 @@ impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
 
-        // These variables are used to filter out signal handler functions
-        // We should find a more robust way to do this. On way is to extend
-        // backtrace-rs to get signal handler information from it.
-        let after_signal_handler = &mut -1;
-        let is_signal_handler = &mut false;
+        let mut frame_iter = frames.slice().frames.iter();
 
-        frames.slice().frames.iter().for_each(|frame| {
+        while let Some(frame) = frame_iter.next() {
             let mut symbols = Vec::new();
 
             backtrace::resolve_frame(frame, |symbol| {
                 let symbol = Symbol::from(symbol);
-                if &symbol.name() == "perf_signal_handler" {
-                    *is_signal_handler = true;
-                }
-
                 symbols.push(symbol);
             });
 
-            if !symbols.is_empty() && *after_signal_handler > 0 {
-                fs.push(symbols);
+            if symbols
+                .iter()
+                .find(|symbol| symbol.name() == "perf_signal_handler")
+                .is_some()
+            {
+                // ignore frame itself and its next one
+                frame_iter.next();
+                continue;
             }
 
-            if *is_signal_handler {
-                *after_signal_handler += 1;
+            if !symbols.is_empty() {
+                fs.push(symbols);
             }
-        });
+        }
 
         Self {
             frames: fs,
-            thread_name: unsafe {
-                String::from_utf8_unchecked(
-                    frames.thread_name[0..frames.thread_name_length].to_vec(),
-                )
-            },
+            thread_name: String::from_utf8_lossy(&frames.thread_name[0..frames.thread_name_length])
+                .into_owned(),
             thread_id: frames.thread_id,
-        }
-    }
-}
-
-impl PartialEq for Frames {
-    fn eq(&self, other: &Self) -> bool {
-        if self.thread_name == other.thread_name {
-            if self.frames.len() == other.frames.len() {
-                let iter = self.frames.iter().zip(other.frames.iter());
-
-                iter.map(|(self_frame, other_frame)| {
-                    if self_frame.len() == other_frame.len() {
-                        let iter = self_frame.iter().zip(other_frame.iter());
-                        iter.map(|(self_symbol, other_symbol)| self_symbol == other_symbol)
-                            .all(|result| result)
-                    } else {
-                        false
-                    }
-                })
-                .all(|result| result)
-            } else {
-                false
-            }
-        } else {
-            false
         }
     }
 }
 
 impl Eq for Frames {}
 
-impl Hash for Frames {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.frames.iter().for_each(|frame| {
-            frame.iter().for_each(|symbol| match &symbol.name {
-                Some(name) => name.hash(state),
-                None => 0.hash(state),
-            })
-        });
-        self.thread_name.hash(state);
-    }
-}
-
-impl Display for Frames {
+impl Debug for Frames {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for frame in self.frames.iter() {
             write!(f, "FRAME: ")?;
@@ -293,12 +234,10 @@ impl Display for Frames {
         }
         write!(f, "THREAD: ")?;
         if !self.thread_name.is_empty() {
-            write!(f, "{}", self.thread_name)?;
+            write!(f, "{}", self.thread_name)
         } else {
-            write!(f, "ThreadId({})", self.thread_id)?;
+            write!(f, "ThreadId({})", self.thread_id)
         }
-
-        Ok(())
     }
 }
 
