@@ -52,13 +52,13 @@ impl<'a> ReportBuilder<'a> {
     pub fn build_unresolved(&self) -> Result<UnresolvedReport> {
         let mut hash_map = HashMap::new();
 
-        match self.profiler.write().as_mut() {
+        match self.profiler.read().as_ref() {
             Err(err) => {
                 log::error!("Error in creating profiler: {}", err);
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
-                profiler.data.iter()?.for_each(|entry| {
+                profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
                         let key = &entry.item;
@@ -93,7 +93,7 @@ impl<'a> ReportBuilder<'a> {
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
-                profiler.data.iter()?.for_each(|entry| {
+                profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
                         let mut key = Frames::from(entry.item.clone());
