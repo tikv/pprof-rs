@@ -71,10 +71,10 @@ impl UnresolvedFrames {
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         if self.thread_id != other.thread_id {
-            return false;
+            false
+        } else {
+            self.slice().symbol_addresses() == other.slice().symbol_addresses()
         }
-
-        return self.slice().symbol_addresses() == other.slice().symbol_addresses();
     }
 }
 
@@ -118,10 +118,7 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn raw_name(&self) -> &[u8] {
-        self.name
-            .as_ref()
-            .map(|data| data.as_slice())
-            .unwrap_or(b"Unknow")
+        self.name.as_deref().unwrap_or(b"Unknow")
     }
 
     pub fn name(&self) -> String {
@@ -200,8 +197,7 @@ impl From<UnresolvedFrames> for Frames {
 
             if symbols
                 .iter()
-                .find(|symbol| symbol.name() == "perf_signal_handler")
-                .is_some()
+                .any(|symbol| symbol.name() == "perf_signal_handler")
             {
                 // ignore frame itself and its next one
                 frame_iter.next();
