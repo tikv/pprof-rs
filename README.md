@@ -5,6 +5,7 @@
 [![Actions Status](https://github.com/tikv/pprof-rs/workflows/build/badge.svg)](https://github.com/tikv/pprof-rs/actions)
 [![Crates.io](https://img.shields.io/crates/v/pprof.svg)](https://crates.io/crates/pprof)
 [![Dependency Status](https://deps.rs/repo/github/tikv/pprof-rs/status.svg)](https://deps.rs/repo/github/tikv/pprof-rs)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs?ref=badge_shield)
 
 ## Usage
 
@@ -190,3 +191,7 @@ Unit tests have been added to guarantee there is no `malloc` in sample functions
 ## TODO
 
 1. Restore the original SIGPROF handler after stopping the profiler.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs?ref=badge_large)
