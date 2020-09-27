@@ -111,7 +111,7 @@ fn main() {
             profile.encode(&mut content).unwrap();
             file.write_all(&content).unwrap();
 
-            println!("report: {}", &report);
+            println!("report: {:?}", report);
         }
         Err(_) => {}
     };

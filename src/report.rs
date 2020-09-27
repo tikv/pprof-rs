@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Formatter};
 
 use parking_lot::RwLock;
 
@@ -52,13 +52,13 @@ impl<'a> ReportBuilder<'a> {
     pub fn build_unresolved(&self) -> Result<UnresolvedReport> {
         let mut hash_map = HashMap::new();
 
-        match self.profiler.write().as_mut() {
+        match self.profiler.read().as_ref() {
             Err(err) => {
                 log::error!("Error in creating profiler: {}", err);
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
-                profiler.data.iter()?.for_each(|entry| {
+                profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
                         let key = &entry.item;
@@ -93,7 +93,7 @@ impl<'a> ReportBuilder<'a> {
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
-                profiler.data.iter()?.for_each(|entry| {
+                profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
                         let mut key = Frames::from(entry.item.clone());
@@ -123,20 +123,16 @@ impl<'a> ReportBuilder<'a> {
     }
 }
 
-/// This will print Report in a human-readable format:
+/// This will generate Report in a human-readable format:
 ///
 /// ```shell
 /// FRAME: pprof::profiler::perf_signal_handler::h7b995c4ab2e66493 -> FRAME: Unknown -> FRAME: {func1} ->
 /// FRAME: {func2} -> FRAME: {func3} ->  THREAD: {thread_name} {count}
 /// ```
-///
-/// This format is **not** stable! Never try to parse it and get profile. `data` field in `Report` is
-/// public for read and write. You can do anything you want with it.
-///
-impl Display for Report {
+impl Debug for Report {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for (key, val) in self.data.iter() {
-            write!(f, "{} {}", key, val)?;
+            write!(f, "{:?} {}", key, val)?;
             writeln!(f)?;
         }
 
@@ -211,8 +207,8 @@ mod protobuf {
                 for frame in key.frames.iter() {
                     for symbol in frame {
                         dudup_str.insert(symbol.name());
-                        dudup_str.insert(symbol.sys_name().to_owned());
-                        dudup_str.insert(symbol.filename().to_owned());
+                        dudup_str.insert(symbol.sys_name().into_owned());
+                        dudup_str.insert(symbol.filename().into_owned());
                     }
                 }
             }
@@ -222,7 +218,7 @@ mod protobuf {
 
             let mut strings = HashMap::new();
             for (index, name) in str_tbl.iter().enumerate() {
-                strings.insert(name, index);
+                strings.insert(name.as_str(), index);
             }
 
             let mut samples = vec![];
@@ -244,9 +240,9 @@ mod protobuf {
                         let mut function = protos::Function::default();
                         let id = fn_tbl.len() as u64 + 1;
                         function.id = id;
-                        function.name = *strings.get(&name).unwrap() as i64;
-                        function.system_name = *strings.get(&sys_name.to_owned()).unwrap() as i64;
-                        function.filename = *strings.get(&filename.to_owned()).unwrap() as i64;
+                        function.name = *strings.get(name.as_str()).unwrap() as i64;
+                        function.system_name = *strings.get(sys_name.as_ref()).unwrap() as i64;
+                        function.filename = *strings.get(filename.as_ref()).unwrap() as i64;
                         functions.insert(name, id);
                         let mut line = protos::Line::default();
                         line.function_id = id;

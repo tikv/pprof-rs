@@ -1,12 +1,12 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::collections::hash_map::DefaultHasher;
-use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::marker::PhantomData;
 
 use crate::frames::UnresolvedFrames;
+
+use tempfile::NamedTempFile;
 
 pub const BUCKETS: usize = 1 << 12;
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
@@ -139,21 +139,19 @@ impl<T: Hash + Eq> StackHashCounter<T> {
 }
 
 pub struct TempFdArray<T: 'static> {
-    file: File,
+    file: NamedTempFile,
     buffer: &'static mut [T; BUFFER_LENGTH],
     buffer_index: usize,
-    phantom: PhantomData<T>,
 }
 
 impl<T> TempFdArray<T> {
     fn new() -> std::io::Result<TempFdArray<T>> {
-        let file = tempfile::tempfile()?;
+        let file = NamedTempFile::new()?;
         let buffer = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
         Ok(Self {
             file,
             buffer: Box::leak(buffer),
             buffer_index: 0,
-            phantom: PhantomData,
         })
     }
 
@@ -181,11 +179,12 @@ impl<T> TempFdArray<T> {
         Ok(())
     }
 
-    fn iter(&mut self) -> std::io::Result<impl Iterator<Item = &T>> {
+    fn try_iter(&self) -> std::io::Result<impl Iterator<Item = &T>> {
         let mut file_vec = Vec::new();
-        self.file.seek(SeekFrom::Start(0))?;
-        self.file.read_to_end(&mut file_vec)?;
-        self.file.seek(SeekFrom::End(0))?;
+        let mut file = self.file.reopen()?;
+        file.seek(SeekFrom::Start(0))?;
+        file.read_to_end(&mut file_vec)?;
+        file.seek(SeekFrom::End(0))?;
 
         Ok(TempFdArrayIterator {
             buffer: &self.buffer[0..self.buffer_index],
@@ -243,8 +242,8 @@ impl<T: Hash + Eq + 'static> Collector<T> {
         Ok(())
     }
 
-    pub fn iter(&mut self) -> std::io::Result<impl Iterator<Item = &Entry<T>>> {
-        Ok(self.map.iter().chain(self.temp_array.iter()?))
+    pub fn try_iter(&self) -> std::io::Result<impl Iterator<Item = &Entry<T>>> {
+        Ok(self.map.iter().chain(self.temp_array.try_iter()?))
     }
 }
 
@@ -326,7 +325,7 @@ mod tests {
             }
         }
 
-        collector.iter().unwrap().for_each(|entry| {
+        collector.try_iter().unwrap().for_each(|entry| {
             add_map(&mut real_map, &entry);
         });
 
@@ -392,7 +391,7 @@ mod tests {
             assert_eq!(*flag.borrow(), false);
         });
 
-        collector.iter().unwrap().for_each(|entry| {
+        collector.try_iter().unwrap().for_each(|entry| {
             add_map(&mut real_map, &entry);
         });
 
