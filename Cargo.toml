@@ -10,8 +10,10 @@ documentation = "https://docs.rs/pprof/"
 readme = "README.md"
 
 [features]
+default = ["cpp"]
 flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
+cpp = ["symbolic-demangle/cpp"]
 
 [dependencies]
 backtrace = "0.3"
@@ -20,13 +22,17 @@ libc = "^0.2.66"
 log = "0.4"
 nix = "0.17"
 parking_lot = "0.11"
-symbolic-demangle = "7.4"
 tempfile = "3.1"
 thiserror = "1.0"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.6", optional = true }
 prost-derive = { version = "0.6", optional = true }
+
+[dependencies.symbolic-demangle]
+version = "8.0"
+default-features = false
+features = ["rust"]
 
 [dev-dependencies]
 criterion = "0.3"
