@@ -262,7 +262,7 @@ mod tests {
 
         assert_eq!(
             &symbol.name(),
-            "Map<StringName, Ref<GDScript>, Comparator<StringName>, DefaultAllocator>::has"
+            "Map<StringName, Ref<GDScript>, Comparator<StringName>, DefaultAllocator>::has(StringName const&) const"
         )
     }
 }
