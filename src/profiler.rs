@@ -198,7 +198,7 @@ impl Profiler {
     }
 
     fn unregister_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::SigDfl;
+        let handler = signal::SigHandler::SigIgn;
         unsafe { signal::signal(signal::SIGPROF, handler) }?;
 
         Ok(())
