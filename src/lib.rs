@@ -32,17 +32,17 @@ pub const MAX_THREAD_NAME: usize = 16;
 mod collector;
 mod error;
 mod frames;
+mod heap_profiler;
 mod profiler;
 mod report;
 mod timer;
-mod heap_profiler;
 
 pub use self::collector::{Collector, StackHashCounter};
 pub use self::error::{Error, Result};
 pub use self::frames::{Frames, Symbol};
+pub use self::heap_profiler::{AllocRecorder, HeapProfilerGuard};
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
-pub use self::heap_profiler::{AllocRecorder, HeapProfilerGuard};
 
 #[cfg(feature = "protobuf")]
 pub mod protos {

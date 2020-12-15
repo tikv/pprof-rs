@@ -1,17 +1,17 @@
 // Copyright 2020 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::alloc::{GlobalAlloc, Layout};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::ops::Deref;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use backtrace::Frame;
 use spin::RwLock;
 
-use crate::MAX_DEPTH;
-use crate::Result;
 use crate::profiler::Profiler;
 use crate::Error;
 use crate::ReportBuilder;
+use crate::Result;
+use crate::MAX_DEPTH;
 
 lazy_static::lazy_static! {
     pub(crate) static ref HEAP_PROFILER: RwLock<Result<Profiler>> = RwLock::new(Profiler::new());
@@ -34,17 +34,17 @@ impl<T: GlobalAlloc> AllocRecorder<T> {
         match HEAP_PROFILER.write().as_mut() {
             Err(err) => {
                 log::error!("Error in creating profiler: {}", err);
-                return Err(Error::CreatingError)
+                Err(Error::CreatingError)
             }
             Ok(profiler) => match profiler.start() {
                 Ok(()) => {
                     self.start();
-                    
+
                     Ok(HeapProfilerGuard::<'static, '_, T> {
                         profiler: &HEAP_PROFILER,
                         alloc: self,
                     })
-                },
+                }
                 Err(err) => Err(err),
             },
         }
@@ -80,7 +80,7 @@ impl<'a, T: GlobalAlloc> Deref for HeapReportBuilder<'a, '_, '_, T> {
 
 pub struct HeapProfilerGuard<'a, 'b, T: GlobalAlloc> {
     profiler: &'a RwLock<Result<Profiler>>,
-    alloc: &'b AllocRecorder<T>
+    alloc: &'b AllocRecorder<T>,
 }
 
 impl<T: GlobalAlloc> HeapProfilerGuard<'_, '_, T> {
@@ -90,7 +90,7 @@ impl<T: GlobalAlloc> HeapProfilerGuard<'_, '_, T> {
 
         HeapReportBuilder {
             report_builder: ReportBuilder::new(&self.profiler),
-            guard: &self
+            guard: &self,
         }
     }
 }
@@ -114,10 +114,9 @@ unsafe impl<T: GlobalAlloc> GlobalAlloc for AllocRecorder<T> {
         if self.profiling.load(Ordering::SeqCst) {
             let mut guard = HEAP_PROFILER.write();
             if let Ok(profiler) = guard.as_mut() {
-                let mut bt: [Frame; MAX_DEPTH] =
-                    std::mem::MaybeUninit::uninit().assume_init();
+                let mut bt: [Frame; MAX_DEPTH] = std::mem::MaybeUninit::uninit().assume_init();
                 let mut index = 0;
-    
+
                 backtrace::trace_unsynchronized(|frame| {
                     if index < MAX_DEPTH {
                         bt[index] = frame.clone();
@@ -133,19 +132,16 @@ unsafe impl<T: GlobalAlloc> GlobalAlloc for AllocRecorder<T> {
             }
         }
 
-        let ptr = self.inner.alloc(layout);
-
-        ptr
+        self.inner.alloc(layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         if self.profiling.load(Ordering::SeqCst) {
             let mut guard = HEAP_PROFILER.write();
             if let Ok(profiler) = guard.as_mut() {
-                let mut bt: [Frame; MAX_DEPTH] =
-                    std::mem::MaybeUninit::uninit().assume_init();
+                let mut bt: [Frame; MAX_DEPTH] = std::mem::MaybeUninit::uninit().assume_init();
                 let mut index = 0;
-    
+
                 backtrace::trace_unsynchronized(|frame| {
                     if index < MAX_DEPTH {
                         bt[index] = frame.clone();

@@ -206,7 +206,13 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame], thread_name: &[u8], thread_id: u64, count: isize) {
+    pub fn sample(
+        &mut self,
+        backtrace: &[Frame],
+        thread_name: &[u8],
+        thread_id: u64,
+        count: isize,
+    ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 

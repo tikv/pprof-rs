@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof::AllocRecorder;
 use pprof::protos::Message;
+use pprof::AllocRecorder;
 use std::alloc::System;
 use std::fs::File;
 use std::io::Write;
