@@ -21,9 +21,9 @@ lazy_static = "1.4"
 libc = "^0.2.66"
 log = "0.4"
 nix = "0.19"
-parking_lot = "0.11"
 tempfile = "3.1"
 thiserror = "1.0"
+spin = "0.7"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.6", optional = true }
@@ -52,6 +52,10 @@ required-features = ["protobuf"]
 [[example]]
 name = "multithread_flamegraph"
 required-features = ["flamegraph"]
+
+[[example]]
+name = "heap_profiler"
+required-features = ["protobuf", "flamegraph"]
 
 [[bench]]
 name = "collector"

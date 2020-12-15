@@ -21,6 +21,8 @@
 //!};
 //! ```
 
+#![feature(const_fn)]
+
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
 pub const MAX_DEPTH: usize = 32;
 
@@ -33,12 +35,14 @@ mod frames;
 mod profiler;
 mod report;
 mod timer;
+mod heap_profiler;
 
 pub use self::collector::{Collector, StackHashCounter};
 pub use self::error::{Error, Result};
 pub use self::frames::{Frames, Symbol};
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
+pub use self::heap_profiler::{AllocRecorder, HeapProfilerGuard};
 
 #[cfg(feature = "protobuf")]
 pub mod protos {
