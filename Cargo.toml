@@ -26,8 +26,8 @@ tempfile = "3.1"
 thiserror = "1.0"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
-prost = { version = "0.6", optional = true }
-prost-derive = { version = "0.6", optional = true }
+prost = { version = "0.7", optional = true }
+prost-derive = { version = "0.7", optional = true }
 
 [dependencies.symbolic-demangle]
 version = "8.0"
