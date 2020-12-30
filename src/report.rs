@@ -167,10 +167,9 @@ mod flamegraph {
 
                     for frame in key.frames.iter().rev() {
                         for symbol in frame.iter().rev() {
-                            line.push_str(&format!("{}/", symbol));
+                            line.push_str(&format!("{}", symbol));
+                            line.push(';');
                         }
-                        line.pop().unwrap_or_default();
-                        line.push(';');
                     }
 
                     line.pop().unwrap_or_default();
