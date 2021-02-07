@@ -143,6 +143,7 @@ impl Debug for Report {
 #[cfg(feature = "flamegraph")]
 mod flamegraph {
     use super::*;
+    use inferno::flamegraph;
     use std::io::Write;
 
     impl Report {
@@ -151,8 +152,18 @@ mod flamegraph {
         where
             W: Write,
         {
-            use inferno::flamegraph;
+            self.flamegraph_with_options(writer, &mut flamegraph::Options::default())
+        }
 
+        /// same as `flamegraph`, but accepts custom `options` for the flamegraph
+        pub fn flamegraph_with_options<W>(
+            &self,
+            writer: W,
+            options: &mut flamegraph::Options,
+        ) -> Result<()>
+        where
+            W: Write,
+        {
             let lines: Vec<String> = self
                 .data
                 .iter()
@@ -179,12 +190,8 @@ mod flamegraph {
                 })
                 .collect();
             if !lines.is_empty() {
-                flamegraph::from_lines(
-                    &mut flamegraph::Options::default(),
-                    lines.iter().map(|s| &**s),
-                    writer,
-                )
-                .unwrap(); // TODO: handle this error
+                flamegraph::from_lines(options, lines.iter().map(|s| &**s), writer).unwrap();
+                // TODO: handle this error
             }
 
             Ok(())

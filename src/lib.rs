@@ -40,6 +40,9 @@ pub use self::frames::{Frames, Symbol};
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
 
+#[cfg(feature = "flamegraph")]
+pub use inferno::flamegraph;
+
 #[cfg(feature = "protobuf")]
 pub mod protos {
     pub use prost::Message;
