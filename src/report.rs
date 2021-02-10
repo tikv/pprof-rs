@@ -143,6 +143,7 @@ impl Debug for Report {
 #[cfg(feature = "flamegraph")]
 mod flamegraph {
     use super::*;
+    use inferno::flamegraph;
     use std::io::Write;
 
     impl Report {
@@ -151,8 +152,18 @@ mod flamegraph {
         where
             W: Write,
         {
-            use inferno::flamegraph;
+            self.flamegraph_with_options(writer, &mut flamegraph::Options::default())
+        }
 
+        /// same as `flamegraph`, but accepts custom `options` for the flamegraph
+        pub fn flamegraph_with_options<W>(
+            &self,
+            writer: W,
+            options: &mut flamegraph::Options,
+        ) -> Result<()>
+        where
+            W: Write,
+        {
             let lines: Vec<String> = self
                 .data
                 .iter()
@@ -179,12 +190,8 @@ mod flamegraph {
                 })
                 .collect();
             if !lines.is_empty() {
-                flamegraph::from_lines(
-                    &mut flamegraph::Options::default(),
-                    lines.iter().map(|s| &**s),
-                    writer,
-                )
-                .unwrap(); // TODO: handle this error
+                flamegraph::from_lines(options, lines.iter().map(|s| &**s), writer).unwrap();
+                // TODO: handle this error
             }
 
             Ok(())
@@ -236,43 +243,53 @@ mod protobuf {
                         let sys_name = symbol.sys_name();
                         let filename = symbol.filename();
                         let lineno = symbol.lineno();
-                        let mut function = protos::Function::default();
-                        let id = fn_tbl.len() as u64 + 1;
-                        function.id = id;
-                        function.name = *strings.get(name.as_str()).unwrap() as i64;
-                        function.system_name = *strings.get(sys_name.as_ref()).unwrap() as i64;
-                        function.filename = *strings.get(filename.as_ref()).unwrap() as i64;
-                        functions.insert(name, id);
-                        let mut line = protos::Line::default();
-                        line.function_id = id;
-                        line.line = lineno as i64;
-                        let mut loc = protos::Location::default();
-                        loc.id = id;
-                        loc.line = vec![line];
+                        let function_id = fn_tbl.len() as u64 + 1;
+                        let function = protos::Function {
+                            id: function_id,
+                            name: *strings.get(name.as_str()).unwrap() as i64,
+                            system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
+                            filename: *strings.get(filename.as_ref()).unwrap() as i64,
+                            ..protos::Function::default()
+                        };
+                        functions.insert(name, function_id);
+                        let line = protos::Line {
+                            function_id,
+                            line: lineno as i64,
+                        };
+                        let loc = protos::Location {
+                            id: function_id,
+                            line: vec![line],
+                            ..protos::Location::default()
+                        };
                         // the fn_tbl has the same length with loc_tbl
                         fn_tbl.push(function);
                         loc_tbl.push(loc);
                         // current frame locations
-                        locs.push(id);
+                        locs.push(function_id);
                     }
                 }
-                let mut sample = protos::Sample::default();
-                sample.location_id = locs;
-                sample.value = vec![*count as i64];
+                let sample = protos::Sample {
+                    location_id: locs,
+                    value: vec![*count as i64],
+                    ..protos::Sample::default()
+                };
                 samples.push(sample);
             }
             let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
             str_tbl.push("cpu".to_owned());
             str_tbl.push("count".to_owned());
-            let mut sample_type = protos::ValueType::default();
-            sample_type.r#type = type_idx as i64;
-            sample_type.unit = unit_idx as i64;
-            let mut profile = protos::Profile::default();
-            profile.sample_type = vec![sample_type];
-            profile.sample = samples;
-            profile.string_table = str_tbl;
-            profile.function = fn_tbl;
-            profile.location = loc_tbl;
+            let sample_type = protos::ValueType {
+                r#type: type_idx as i64,
+                unit: unit_idx as i64,
+            };
+            let profile = protos::Profile {
+                sample_type: vec![sample_type],
+                sample: samples,
+                string_table: str_tbl,
+                function: fn_tbl,
+                location: loc_tbl,
+                ..protos::Profile::default()
+            };
             Ok(profile)
         }
     }
