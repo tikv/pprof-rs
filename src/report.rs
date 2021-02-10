@@ -242,17 +242,17 @@ mod protobuf {
                             name: *strings.get(name.as_str()).unwrap() as i64,
                             system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
                             filename: *strings.get(filename.as_ref()).unwrap() as i64,
-                            .. protos::Function::default()
+                            ..protos::Function::default()
                         };
                         functions.insert(name, function_id);
                         let line = protos::Line {
                             function_id,
-                            line: lineno as i64
+                            line: lineno as i64,
                         };
                         let loc = protos::Location {
                             id: function_id,
                             line: vec![line],
-                            .. protos::Location::default()
+                            ..protos::Location::default()
                         };
                         // the fn_tbl has the same length with loc_tbl
                         fn_tbl.push(function);
@@ -264,7 +264,7 @@ mod protobuf {
                 let sample = protos::Sample {
                     location_id: locs,
                     value: vec![*count as i64],
-                    .. protos::Sample::default()
+                    ..protos::Sample::default()
                 };
                 samples.push(sample);
             }
@@ -273,7 +273,7 @@ mod protobuf {
             str_tbl.push("count".to_owned());
             let sample_type = protos::ValueType {
                 r#type: type_idx as i64,
-                unit: unit_idx as i64
+                unit: unit_idx as i64,
             };
             let profile = protos::Profile {
                 sample_type: vec![sample_type],
@@ -281,7 +281,7 @@ mod protobuf {
                 string_table: str_tbl,
                 function: fn_tbl,
                 location: loc_tbl,
-                .. protos::Profile::default()
+                ..protos::Profile::default()
             };
             Ok(profile)
         }
