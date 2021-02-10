@@ -5,7 +5,7 @@ use std::os::raw::c_int;
 
 use backtrace::Frame;
 use nix::sys::signal;
-use parking_lot::RwLock;
+use spin::RwLock;
 
 use crate::collector::Collector;
 use crate::error::{Error, Result};
@@ -143,13 +143,13 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
+            profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64, 1);
         }
     }
 }
 
 impl Profiler {
-    fn new() -> Result<Self> {
+    pub fn new() -> Result<Self> {
         Ok(Profiler {
             data: Collector::new()?,
             sample_counter: 0,
@@ -171,7 +171,7 @@ impl Profiler {
         }
     }
 
-    fn init(&mut self) -> Result<()> {
+    pub(crate) fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
         self.data = Collector::new()?;
         self.running = false;
@@ -206,11 +206,17 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame], thread_name: &[u8], thread_id: u64) {
+    pub fn sample(
+        &mut self,
+        backtrace: &[Frame],
+        thread_name: &[u8],
+        thread_id: u64,
+        count: isize,
+    ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 
-        if let Ok(()) = self.data.add(frames, 1) {}
+        if let Ok(()) = self.data.add(frames, count) {}
     }
 }
 

@@ -3,11 +3,10 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
-use parking_lot::RwLock;
+use spin::RwLock;
 
 use crate::frames::{Frames, UnresolvedFrames};
 use crate::profiler::Profiler;
-
 use crate::{Error, Result};
 
 /// The final presentation of a report which is actually an `HashMap` from `Frames` to isize (count).

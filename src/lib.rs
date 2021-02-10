@@ -21,6 +21,8 @@
 //!};
 //! ```
 
+#![cfg_attr(feature = "heap", feature(const_fn))]
+
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
 pub const MAX_DEPTH: usize = 32;
 
@@ -30,6 +32,9 @@ pub const MAX_THREAD_NAME: usize = 16;
 mod collector;
 mod error;
 mod frames;
+#[cfg(feature = "heap")]
+mod heap_profiler;
+
 mod profiler;
 mod report;
 mod timer;
@@ -37,6 +42,10 @@ mod timer;
 pub use self::collector::{Collector, StackHashCounter};
 pub use self::error::{Error, Result};
 pub use self::frames::{Frames, Symbol};
+
+#[cfg(feature = "heap")]
+pub use self::heap_profiler::{AllocRecorder, HeapProfilerGuard};
+
 pub use self::profiler::ProfilerGuard;
 pub use self::report::{Report, ReportBuilder};
 

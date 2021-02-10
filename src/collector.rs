@@ -342,6 +342,40 @@ mod tests {
         }
     }
 
+    #[test]
+    fn collector_minus_test() {
+        let mut collector = Collector::new().unwrap();
+        let mut real_map = BTreeMap::new();
+
+        for item in 0..(1 << 12) * 4 {
+            for _ in 0..(item % 4) {
+                collector.add(item, 2).unwrap();
+            }
+        }
+
+        for item in 0..(1 << 12) * 4 {
+            for _ in 0..(item % 4) {
+                collector.add(item, -1).unwrap();
+            }
+        }
+
+        collector.try_iter().unwrap().for_each(|entry| {
+            add_map(&mut real_map, &entry);
+        });
+
+        for item in 0..(1 << 12) * 4 {
+            let count = (item % 4) as isize;
+            match real_map.get(&item) {
+                Some(value) => {
+                    assert_eq!(count, *value);
+                }
+                None => {
+                    assert_eq!(count, 0);
+                }
+            }
+        }
+    }
+
     extern "C" {
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
