@@ -42,10 +42,9 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
             Output::Protobuf => ".pb",
         };
         let output_path = benchmark_dir.join(format!("{}{}", benchmark_id, ext));
-        let mut output_file = File::create(&output_path).expect(&format!(
-            "File system error while creating {}",
-            output_path.display()
-        ));
+        let mut output_file = File::create(&output_path).unwrap_or_else(|_| {
+            panic!("File system error while creating {}", output_path.display())
+        });
 
         if let Some(profiler) = self.active_profiler.take() {
             match &mut self.output {
