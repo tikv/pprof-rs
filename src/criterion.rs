@@ -1,7 +1,10 @@
 // Copyright 2020 TiKV Project Authors. Licensed under Apache-2.0.
 
+#[cfg(feature = "flamegraph")]
+use crate::flamegraph::Options as FlamegraphOptions;
 #[cfg(feature = "protobuf")]
 use crate::protos::Message;
+
 use crate::ProfilerGuard;
 use criterion::profiler::Profiler;
 
@@ -10,21 +13,21 @@ use std::io::Write;
 use std::os::raw::c_int;
 use std::path::Path;
 
-pub enum Output {
+pub enum Output<'a> {
     #[cfg(feature = "flamegraph")]
-    FlameGraph,
+    Flamegraph(Option<FlamegraphOptions<'a>>),
 
     #[cfg(feature = "protobuf")]
     Protobuf,
 }
 
-pub struct PProfProfiler<'a> {
+pub struct PProfProfiler<'a, 'b> {
     frequency: c_int,
-    output: Output,
+    output: Output<'b>,
     active_profiler: Option<ProfilerGuard<'a>>,
 }
 
-impl<'a> Profiler for PProfProfiler<'a> {
+impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
     fn start_profiling(&mut self, _benchmark_id: &str, _benchmark_dir: &Path) {
         self.active_profiler = Some(ProfilerGuard::new(self.frequency).unwrap());
     }
@@ -34,7 +37,7 @@ impl<'a> Profiler for PProfProfiler<'a> {
 
         let ext = match self.output {
             #[cfg(feature = "flamegraph")]
-            Output::FlameGraph => ".svg",
+            Output::Flamegraph(_) => ".svg",
             #[cfg(feature = "protobuf")]
             Output::Protobuf => ".pb",
         };
@@ -45,14 +48,17 @@ impl<'a> Profiler for PProfProfiler<'a> {
         ));
 
         if let Some(profiler) = self.active_profiler.take() {
-            match self.output {
+            match &mut self.output {
                 #[cfg(feature = "flamegraph")]
-                Output::FlameGraph => {
+                Output::Flamegraph(options) => {
+                    let default_options = &mut FlamegraphOptions::default();
+                    let options = options.as_mut().unwrap_or(default_options);
+
                     profiler
                         .report()
                         .build()
                         .unwrap()
-                        .flamegraph(output_file)
+                        .flamegraph_with_options(output_file, options)
                         .expect("Error while writing flamegraph");
                 }
 
