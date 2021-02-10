@@ -46,6 +46,17 @@ if let Ok(report) = guard.report().build() {
 };
 ```
 
+Additionally, custom flamegraph options can be specified.
+
+```rust
+if let Ok(report) = guard.report().build() {
+    let file = File::create("flamegraph.svg").unwrap();
+    let mut options = pprof::flamegraph::Options::default();
+    options.image_width = Some(2500);
+    report.flamegraph_with_options(file, &mut options).unwrap();
+};
+```
+
 Here is an example of generated flamegraph:
 
 ![flamegraph](https://user-images.githubusercontent.com/5244316/68021936-c1265e80-fcdd-11e9-8fa5-62b548bc751d.png)
