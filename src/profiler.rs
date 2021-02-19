@@ -137,7 +137,7 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
             }
 
             let current_thread = unsafe { libc::pthread_self() };
-            let mut name = [0 as libc::c_char; MAX_THREAD_NAME];
+            let mut name = [0; MAX_THREAD_NAME];
             let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
 
             write_thread_name(current_thread, &mut name);
