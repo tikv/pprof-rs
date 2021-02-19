@@ -5,12 +5,7 @@ name: build
 jobs:
   lint:
     name: Format and Clippy
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        toolchain: [stable, nightly]
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout sources
@@ -20,8 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.toolchain }}
-          target: ${{ matrix.target }}
+          toolchain: stable
           override: true
           components: rustfmt, clippy
 
