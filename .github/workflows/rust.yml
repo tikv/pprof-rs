@@ -35,9 +35,10 @@ jobs:
     name: Build
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         toolchain: [stable, nightly]
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout sources
