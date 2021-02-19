@@ -214,14 +214,17 @@ impl Profiler {
     }
 }
 
-#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::ffi::c_void;
 
+    #[cfg(not(target_os = "linux"))]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
     extern "C" {
+        #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;
