@@ -214,6 +214,7 @@ impl Profiler {
     }
 }
 
+#[cfg(target_os = "linux")]
 #[cfg(test)]
 mod tests {
     use super::*;
