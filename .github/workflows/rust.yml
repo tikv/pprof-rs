@@ -8,6 +8,8 @@ jobs:
     strategy:
        matrix:
          os: [ubuntu-latest, macos-latest]
+         toolchain: [stable, nightly]
+         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -18,7 +20,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
           override: true
           components: rustfmt, clippy
 
@@ -49,7 +52,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
           override: true
 
       - name: Run cargo test
