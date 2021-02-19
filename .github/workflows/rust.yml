@@ -6,10 +6,10 @@ jobs:
   lint:
     name: Format and Clippy
     strategy:
-       matrix:
-         os: [ubuntu-latest, macos-latest]
-         toolchain: [stable, nightly]
-         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain: [stable, nightly]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -41,7 +41,9 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
+        toolchain: [stable, nightly]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: ${{ matrix.os }}
 
     steps:
