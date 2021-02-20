@@ -154,7 +154,7 @@ criterion_main!(benches);
 
 After running the benchmark, you can find the flamegraph under `target/criterion/<name-of-benchmark>/profile/`. `protobuf` output is also available, with `Output::Protobuf` option.
 
-For more details, you can check the `examples/criterion.rs`, and the profiling document of [`criterion`](https://bheisler.github.io/criterion.rs/book/user_guide/profiling.html).
+For more details, you can check the `examples/criterion.rs`, and the profiling document of [`criterion`](https://bheisler.github.io/criterion.rs/book/user_guide/profiling.html). For a quick start, you can run this example with `cargo run --example criterion --release --features="flamegraph criterion" -- --bench --profile-time 5`
 
 ## Why not ...
 
