@@ -342,7 +342,12 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "linux"))]
+    #[allow(clippy::wrong_self_convention)]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
     extern "C" {
+        #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;

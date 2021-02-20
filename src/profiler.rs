@@ -137,7 +137,7 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
             }
 
             let current_thread = unsafe { libc::pthread_self() };
-            let mut name = [0_i8; MAX_THREAD_NAME];
+            let mut name = [0; MAX_THREAD_NAME];
             let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
 
             write_thread_name(current_thread, &mut name);
@@ -220,7 +220,12 @@ mod tests {
     use std::cell::RefCell;
     use std::ffi::c_void;
 
+    #[cfg(not(target_os = "linux"))]
+    #[allow(clippy::wrong_self_convention)]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
     extern "C" {
+        #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;
