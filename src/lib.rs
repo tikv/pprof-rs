@@ -52,5 +52,5 @@ pub mod protos {
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
 }
 
-#[cfg(feature = "flamegraph")]
+#[cfg(feature = "criterion")]
 pub mod criterion;
