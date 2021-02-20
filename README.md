@@ -141,7 +141,7 @@ Then `pprof` will generate a svg file according to the profile.
 
 With `criterion` feature enabled, a criterion custom profiler is provided in `pprof-rs`.
 
-```
+```rust
 use pprof::criterion::{PProfProfiler, Output};
 
 criterion_group!{
