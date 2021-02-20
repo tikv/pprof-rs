@@ -54,6 +54,10 @@ required-features = ["protobuf"]
 name = "multithread_flamegraph"
 required-features = ["flamegraph"]
 
+[[example]]
+name = "criterion"
+required-features = ["flamegraph", "criterion"]
+
 [[bench]]
 name = "collector"
 path = "benches/collector.rs"

@@ -9,6 +9,7 @@ use crate::ProfilerGuard;
 use criterion::profiler::Profiler;
 
 use std::fs::File;
+#[cfg(feature = "protobuf")]
 use std::io::Write;
 use std::os::raw::c_int;
 use std::path::Path;
@@ -27,6 +28,16 @@ pub struct PProfProfiler<'a, 'b> {
     active_profiler: Option<ProfilerGuard<'a>>,
 }
 
+impl<'a, 'b> PProfProfiler<'a, 'b> {
+    pub fn new(frequency: c_int, output: Output<'b>) -> Self {
+        return Self {
+            frequency,
+            output,
+            active_profiler: None,
+        }
+    }
+}
+
 impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
     fn start_profiling(&mut self, _benchmark_id: &str, _benchmark_dir: &Path) {
         self.active_profiler = Some(ProfilerGuard::new(self.frequency).unwrap());
@@ -42,7 +53,7 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
             Output::Protobuf => ".pb",
         };
         let output_path = benchmark_dir.join(format!("{}{}", benchmark_id, ext));
-        let mut output_file = File::create(&output_path).unwrap_or_else(|_| {
+        let output_file = File::create(&output_path).unwrap_or_else(|_| {
             panic!("File system error while creating {}", output_path.display())
         });
 
@@ -63,6 +74,8 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
 
                 #[cfg(feature = "protobuf")]
                 Output::Protobuf => {
+                    let mut output_file = output_file;
+
                     let profile = profiler.report().build().unwrap().pprof().unwrap();
 
                     let mut content = Vec::new();
