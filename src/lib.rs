@@ -20,6 +20,8 @@
 //!    println!("report: {:?}", &report);
 //!};
 //! ```
+//!
+//! You can find more details in [README.md](https://github.com/tikv/pprof-rs/blob/master/README.md)
 
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
 pub const MAX_DEPTH: usize = 32;
@@ -49,3 +51,6 @@ pub mod protos {
 
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
 }
+
+#[cfg(feature = "criterion")]
+pub mod criterion;
