@@ -30,7 +30,7 @@ pub struct PProfProfiler<'a, 'b> {
 
 impl<'a, 'b> PProfProfiler<'a, 'b> {
     pub fn new(frequency: c_int, output: Output<'b>) -> Self {
-        return Self {
+        Self {
             frequency,
             output,
             active_profiler: None,
