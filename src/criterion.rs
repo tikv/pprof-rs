@@ -43,16 +43,16 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
         self.active_profiler = Some(ProfilerGuard::new(self.frequency).unwrap());
     }
 
-    fn stop_profiling(&mut self, benchmark_id: &str, benchmark_dir: &Path) {
+    fn stop_profiling(&mut self, _benchmark_id: &str, benchmark_dir: &Path) {
         std::fs::create_dir_all(benchmark_dir).unwrap();
 
-        let ext = match self.output {
+        let filename = match self.output {
             #[cfg(feature = "flamegraph")]
-            Output::Flamegraph(_) => ".svg",
+            Output::Flamegraph(_) => "flamegraph.svg",
             #[cfg(feature = "protobuf")]
-            Output::Protobuf => ".pb",
+            Output::Protobuf => "profile.pb",
         };
-        let output_path = benchmark_dir.join(format!("{}{}", benchmark_id, ext));
+        let output_path = benchmark_dir.join(filename);
         let output_file = File::create(&output_path).unwrap_or_else(|_| {
             panic!("File system error while creating {}", output_path.display())
         });

@@ -34,7 +34,7 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 ## Flamegraph
 
 ```toml
-pprof = { version = "0.4", features = ["flamegraph"] } 
+pprof = { version = "0.4", features = ["flamegraph"] }
 ```
 
 If `flamegraph` feature is enabled, you can generate flamegraph from the report. `Report` struct has a method `flamegraph` which can generate flamegraph and write it into a `Write`.
@@ -65,7 +65,7 @@ Here is an example of generated flamegraph:
 
 Before the report was generated, `frame_post_processor` was provided as an interface to modify raw statistic data. If you want to group several symbols/thread or demangle for some symbols, this feature will benefit you.
 
-For example: 
+For example:
 
 ```rust
 fn frames_post_processor() -> impl Fn(&mut pprof::Frames) {
@@ -109,7 +109,7 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
 
 ## Use with `pprof`
 
-With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format. 
+With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format.
 
 ```rust
 match guard.report().build() {
@@ -152,9 +152,9 @@ criterion_group!{
 criterion_main!(benches);
 ```
 
-After running the benchmark, you can find the flamegraph under `target/criterion/<name-of-benchmark>/profile/`. `protobuf` output is also available, with `Output::Protobuf` option.
+After running the benchmark, you can find the flamegraph at `target/criterion/<name-of-benchmark>/profile/flamegraph.svg`. `protobuf` output is also available with the `Output::Protobuf` option; these end up at `target/criterion/<name-of-benchmark>/profile.pb`.
 
-For more details, you can check the `examples/criterion.rs`, and the profiling document of [`criterion`](https://bheisler.github.io/criterion.rs/book/user_guide/profiling.html). For a quick start, you can run this example with `cargo run --example criterion --release --features="flamegraph criterion" -- --bench --profile-time 5`
+For more details, you can check the [`examples/criterion.rs`](examples/criterion.rs), and the profiling document of [`criterion`](https://bheisler.github.io/criterion.rs/book/user_guide/profiling.html). For a quick start, you can run this example with `cargo run --example criterion --release --features="flamegraph criterion" -- --bench --profile-time 5`
 
 ## Why not ...
 
@@ -202,7 +202,7 @@ However, the real world is full of thorns. There are many worths of note parts i
 
 Unfortunately, there is no 100% robust stack tracing method. [Some related researches](https://github.com/gperftools/gperftools/wiki/gperftools%27-stacktrace-capturing-methods-and-their-issues) have been done by gperftools. `pprof-rs` uses [`backtrace-rs`](https://github.com/rust-lang/backtrace-rs) which finally uses libunwind provided by `libgcc`
 
-**WARN:** as described in former gperftools documents, libunwind provided by `libgcc` is not signal safe. 
+**WARN:** as described in former gperftools documents, libunwind provided by `libgcc` is not signal safe.
 
 > libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
 
