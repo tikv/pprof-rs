@@ -97,7 +97,7 @@ fn main() {
             .build()
         {
             Ok(report) => {
-                println!("{:?}", report);
+                println!("{}", report);
             }
             Err(_) => {}
         };

@@ -60,7 +60,7 @@ fn main() {
 
         match guard.report().build() {
             Ok(report) => {
-                println!("{:?}", report);
+                println!("{}", report);
             }
             Err(_) => {}
         };
