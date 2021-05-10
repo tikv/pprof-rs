@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::{collections::HashMap, fmt::Display};
 
 use parking_lot::RwLock;
 
@@ -129,7 +129,7 @@ impl<'a> ReportBuilder<'a> {
 /// FRAME: pprof::profiler::perf_signal_handler::h7b995c4ab2e66493 -> FRAME: Unknown -> FRAME: {func1} ->
 /// FRAME: {func2} -> FRAME: {func3} ->  THREAD: {thread_name} {count}
 /// ```
-impl Debug for Report {
+impl Display for Report {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for (key, val) in self.data.iter() {
             write!(f, "{:?} {}", key, val)?;
