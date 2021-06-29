@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Formatter;
+use std::{collections::HashMap, fmt::Display};
 
 use parking_lot::RwLock;
 
@@ -129,7 +129,7 @@ impl<'a> ReportBuilder<'a> {
 /// FRAME: pprof::profiler::perf_signal_handler::h7b995c4ab2e66493 -> FRAME: Unknown -> FRAME: {func1} ->
 /// FRAME: {func2} -> FRAME: {func3} ->  THREAD: {thread_name} {count}
 /// ```
-impl Debug for Report {
+impl Display for Report {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for (key, val) in self.data.iter() {
             write!(f, "{:?} {}", key, val)?;
@@ -237,43 +237,53 @@ mod protobuf {
                         let sys_name = symbol.sys_name();
                         let filename = symbol.filename();
                         let lineno = symbol.lineno();
-                        let mut function = protos::Function::default();
-                        let id = fn_tbl.len() as u64 + 1;
-                        function.id = id;
-                        function.name = *strings.get(name.as_str()).unwrap() as i64;
-                        function.system_name = *strings.get(sys_name.as_ref()).unwrap() as i64;
-                        function.filename = *strings.get(filename.as_ref()).unwrap() as i64;
-                        functions.insert(name, id);
-                        let mut line = protos::Line::default();
-                        line.function_id = id;
-                        line.line = lineno as i64;
-                        let mut loc = protos::Location::default();
-                        loc.id = id;
-                        loc.line = vec![line];
+                        let function_id = fn_tbl.len() as u64 + 1;
+                        let function = protos::Function {
+                            id: function_id,
+                            name: *strings.get(name.as_str()).unwrap() as i64,
+                            system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
+                            filename: *strings.get(filename.as_ref()).unwrap() as i64,
+                            ..protos::Function::default()
+                        };
+                        functions.insert(name, function_id);
+                        let line = protos::Line {
+                            function_id,
+                            line: lineno as i64,
+                        };
+                        let loc = protos::Location {
+                            id: function_id,
+                            line: vec![line],
+                            ..protos::Location::default()
+                        };
                         // the fn_tbl has the same length with loc_tbl
                         fn_tbl.push(function);
                         loc_tbl.push(loc);
                         // current frame locations
-                        locs.push(id);
+                        locs.push(function_id);
                     }
                 }
-                let mut sample = protos::Sample::default();
-                sample.location_id = locs;
-                sample.value = vec![*count as i64];
+                let sample = protos::Sample {
+                    location_id: locs,
+                    value: vec![*count as i64],
+                    ..protos::Sample::default()
+                };
                 samples.push(sample);
             }
             let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
             str_tbl.push("cpu".to_owned());
             str_tbl.push("count".to_owned());
-            let mut sample_type = protos::ValueType::default();
-            sample_type.r#type = type_idx as i64;
-            sample_type.unit = unit_idx as i64;
-            let mut profile = protos::Profile::default();
-            profile.sample_type = vec![sample_type];
-            profile.sample = samples;
-            profile.string_table = str_tbl;
-            profile.function = fn_tbl;
-            profile.location = loc_tbl;
+            let sample_type = protos::ValueType {
+                r#type: type_idx as i64,
+                unit: unit_idx as i64,
+            };
+            let profile = protos::Profile {
+                sample_type: vec![sample_type],
+                sample: samples,
+                string_table: str_tbl,
+                function: fn_tbl,
+                location: loc_tbl,
+                ..protos::Profile::default()
+            };
             Ok(profile)
         }
     }
