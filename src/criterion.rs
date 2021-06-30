@@ -11,9 +11,9 @@ use criterion::profiler::Profiler;
 use std::fs::File;
 #[cfg(feature = "protobuf")]
 use std::io::Write;
+use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::path::Path;
-use std::marker::PhantomData;
 
 pub enum Output<'a> {
     #[cfg(feature = "flamegraph")]
@@ -22,7 +22,9 @@ pub enum Output<'a> {
     #[cfg(feature = "protobuf")]
     Protobuf,
 
-    #[deprecated(note = "This branch is used to include lifetime parameter. Don't use it directly.")]
+    #[deprecated(
+        note = "This branch is used to include lifetime parameter. Don't use it directly."
+    )]
     _Phantom(PhantomData<&'a ()>),
 }
 
@@ -61,7 +63,7 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
             // This is `""` but not `unreachable!()`, because `unreachable!()`
             // will result in another compile error, so that the user may not
             // realize the error thrown by `compile_error!()` at the first time.
-            _ => { "" },
+            _ => "",
         };
         let output_path = benchmark_dir.join(filename);
         let output_file = File::create(&output_path).unwrap_or_else(|_| {
@@ -99,7 +101,7 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
                         .expect("Error while writing protobuf");
                 }
 
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         }
     }
