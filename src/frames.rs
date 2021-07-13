@@ -40,6 +40,7 @@ impl Debug for UnresolvedFrames {
 }
 
 impl UnresolvedFrames {
+    #[allow(clippy::uninit_assumed_init)]
     pub fn new(bt: &[Frame], tn: &[u8], thread_id: u64) -> Self {
         let depth = bt.len();
         let mut frames: [Frame; MAX_DEPTH] =

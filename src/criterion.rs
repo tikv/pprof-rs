@@ -11,6 +11,7 @@ use criterion::profiler::Profiler;
 use std::fs::File;
 #[cfg(feature = "protobuf")]
 use std::io::Write;
+use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::path::Path;
 
@@ -20,6 +21,11 @@ pub enum Output<'a> {
 
     #[cfg(feature = "protobuf")]
     Protobuf,
+
+    #[deprecated(
+        note = "This branch is used to include lifetime parameter. Don't use it directly."
+    )]
+    _Phantom(PhantomData<&'a ()>),
 }
 
 pub struct PProfProfiler<'a, 'b> {
@@ -38,6 +44,9 @@ impl<'a, 'b> PProfProfiler<'a, 'b> {
     }
 }
 
+#[cfg(not(any(feature = "protobuf", feature = "flamegraph")))]
+compile_error!("Either feature \"protobuf\" or \"flamegraph\" must be enabled when \"criterion\" feature is enabled.");
+
 impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
     fn start_profiling(&mut self, _benchmark_id: &str, _benchmark_dir: &Path) {
         self.active_profiler = Some(ProfilerGuard::new(self.frequency).unwrap());
@@ -51,6 +60,10 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
             Output::Flamegraph(_) => "flamegraph.svg",
             #[cfg(feature = "protobuf")]
             Output::Protobuf => "profile.pb",
+            // This is `""` but not `unreachable!()`, because `unreachable!()`
+            // will result in another compile error, so that the user may not
+            // realize the error thrown by `compile_error!()` at the first time.
+            _ => "",
         };
         let output_path = benchmark_dir.join(filename);
         let output_file = File::create(&output_path).unwrap_or_else(|_| {
@@ -87,6 +100,8 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
                         .write_all(&content)
                         .expect("Error while writing protobuf");
                 }
+
+                _ => unreachable!(),
             }
         }
     }

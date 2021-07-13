@@ -117,6 +117,7 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 }
 
 #[no_mangle]
+#[allow(clippy::uninit_assumed_init)]
 extern "C" fn perf_signal_handler(_signal: c_int) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
