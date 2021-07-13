@@ -26,7 +26,7 @@ tempfile = "3.1"
 thiserror = "1.0"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
-prost = { version = "0.7", optional = true }
+prost = { version = "0.8", optional = true }
 prost-derive = { version = "0.7", optional = true }
 criterion = {version = "0.3", optional = true}
 
