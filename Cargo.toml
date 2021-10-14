@@ -40,7 +40,7 @@ criterion = "0.3"
 rand = "0.8.0"
 
 [build-dependencies]
-prost-build = { version = "0.8", optional = true }
+prost-build = { version = "0.9", optional = true }
 
 [[example]]
 name = "flamegraph"
