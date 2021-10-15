@@ -221,10 +221,6 @@ mod tests {
     use std::cell::RefCell;
     use std::ffi::c_void;
 
-    #[cfg(not(target_os = "linux"))]
-    #[allow(clippy::wrong_self_convention)]
-    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
-
     extern "C" {
         #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
@@ -236,6 +232,7 @@ mod tests {
         static FLAG: RefCell<bool> = RefCell::new(false);
     }
 
+    #[cfg(target_os = "linux")]
     extern "C" fn malloc_hook(size: usize) -> *mut c_void {
         unsafe {
             __malloc_hook = None;
@@ -292,7 +289,7 @@ mod tests {
         }
         prime_numbers
     }
-
+    #[cfg(target_os = "linux")]
     #[test]
     fn malloc_free() {
         trigger_lazy();
