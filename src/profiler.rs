@@ -58,7 +58,7 @@ impl ProfilerGuard<'_> {
 
     /// Generate a report
     pub fn report(&self) -> ReportBuilder {
-        ReportBuilder::new(&self.profiler)
+        ReportBuilder::new(self.profiler)
     }
 }
 
