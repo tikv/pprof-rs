@@ -20,14 +20,14 @@ backtrace = "0.3"
 lazy_static = "1.4"
 libc = "^0.2.66"
 log = "0.4"
-nix = "0.20"
+nix = "0.23"
 parking_lot = "0.11"
 tempfile = "3.1"
 thiserror = "1.0"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
-prost = { version = "0.8", optional = true }
-prost-derive = { version = "0.8", optional = true }
+prost = { version = "0.9", optional = true }
+prost-derive = { version = "0.9", optional = true }
 criterion = {version = "0.3", optional = true}
 
 [dependencies.symbolic-demangle]
@@ -40,7 +40,7 @@ criterion = "0.3"
 rand = "0.8.0"
 
 [build-dependencies]
-prost-build = { version = "0.8", optional = true }
+prost-build = { version = "0.9", optional = true }
 
 [[example]]
 name = "flamegraph"
