@@ -8,7 +8,7 @@ use nix::sys::signal;
 use parking_lot::RwLock;
 
 #[cfg(feature = "ignore-libc")]
-use findshlibs::{Segment, TargetSharedLibrary, SharedLibrary};
+use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
 use crate::error::{Error, Result};
@@ -124,13 +124,18 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
-extern "C" fn perf_signal_handler(_signal: c_int, _siginfo: *mut libc::siginfo_t, ucontext: *mut libc::c_void) {
+extern "C" fn perf_signal_handler(
+    _signal: c_int,
+    _siginfo: *mut libc::siginfo_t,
+    ucontext: *mut libc::c_void,
+) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64" ))]
+            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64"))]
             {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
-                let addr = unsafe {(*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize};
+                let addr =
+                    unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
                 if profiler.is_blacklisted(addr) {
                     return;
                 }
@@ -164,19 +169,30 @@ extern "C" fn perf_signal_handler(_signal: c_int, _siginfo: *mut libc::siginfo_t
     }
 }
 
+#[cfg(feature = "ignore-libc")]
+const SHLIB_BLACKLIST: [&str; 3] = ["libc", "libgcc_s", "libpthread"];
+
 impl Profiler {
     fn new() -> Result<Self> {
         #[cfg(feature = "ignore-libc")]
         let blacklist_segments = {
             let mut segments = Vec::new();
             TargetSharedLibrary::each(|shlib| {
-                if shlib.name().to_str().and_then(|name| {
-                    if name.contains("libc") || name.contains("libgcc_s") || name.contains("libpthread") {
-                        return Some(())
+                let in_blacklist = match shlib.name().to_str() {
+                    Some(name) => {
+                        let mut in_blacklist = false;
+                        for blocked_name in SHLIB_BLACKLIST.iter() {
+                            if name.contains(blocked_name) {
+                                in_blacklist = true;
+                            }
+                        }
+
+                        in_blacklist
                     }
 
-                    None
-                }).is_some() {
+                    None => false,
+                };
+                if in_blacklist {
                     for seg in shlib.segments() {
                         let avam = seg.actual_virtual_memory_address(shlib);
                         let start = avam.0;
@@ -244,7 +260,11 @@ impl Profiler {
 
     fn register_signal_handler(&self) -> Result<()> {
         let handler = signal::SigHandler::SigAction(perf_signal_handler);
-        let sigaction = signal::SigAction::new(handler, signal::SaFlags::SA_SIGINFO, signal::SigSet::empty());
+        let sigaction = signal::SigAction::new(
+            handler,
+            signal::SaFlags::SA_SIGINFO,
+            signal::SigSet::empty(),
+        );
         unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
 
         Ok(())
