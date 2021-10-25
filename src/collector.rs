@@ -19,17 +19,14 @@ pub struct Entry<T> {
 
 pub struct Bucket<T: 'static> {
     pub length: usize,
-    entries: &'static mut [Entry<T>; BUCKETS_ASSOCIATIVITY],
+    entries: Box<[Entry<T>; BUCKETS_ASSOCIATIVITY]>,
 }
 
 impl<T: Eq> Default for Bucket<T> {
     fn default() -> Bucket<T> {
         let entries = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
 
-        Self {
-            length: 0,
-            entries: Box::leak(entries),
-        }
+        Self { length: 0, entries }
     }
 }
 
@@ -95,25 +92,23 @@ impl<'a, T> Iterator for BucketIterator<'a, T> {
     }
 }
 
-pub struct StackHashCounter<T: Hash + Eq + 'static> {
-    buckets: &'static mut [Bucket<T>; BUCKETS],
+pub struct HashCounter<T: Hash + Eq + 'static> {
+    buckets: Box<[Bucket<T>; BUCKETS]>,
 }
 
-impl<T: Hash + Eq> Default for StackHashCounter<T> {
+impl<T: Hash + Eq> Default for HashCounter<T> {
     fn default() -> Self {
         let buckets = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
-        let counter = Self {
-            buckets: Box::leak(buckets),
-        };
-        counter.buckets.iter_mut().for_each(|item| {
-            *item = Bucket::<T>::default();
+        let mut counter = Self { buckets };
+        counter.buckets.iter_mut().for_each(|item| unsafe {
+            std::ptr::write(item, Bucket::<T>::default());
         });
 
         counter
     }
 }
 
-impl<T: Hash + Eq> StackHashCounter<T> {
+impl<T: Hash + Eq> HashCounter<T> {
     fn hash(key: &T) -> u64 {
         let mut s = DefaultHasher::new();
         key.hash(&mut s);
@@ -140,7 +135,7 @@ impl<T: Hash + Eq> StackHashCounter<T> {
 
 pub struct TempFdArray<T: 'static> {
     file: NamedTempFile,
-    buffer: &'static mut [T; BUFFER_LENGTH],
+    buffer: Box<[T; BUFFER_LENGTH]>,
     buffer_index: usize,
 }
 
@@ -150,7 +145,7 @@ impl<T> TempFdArray<T> {
         let buffer = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
         Ok(Self {
             file,
-            buffer: Box::leak(buffer),
+            buffer,
             buffer_index: 0,
         })
     }
@@ -222,14 +217,14 @@ impl<'a, T> Iterator for TempFdArrayIterator<'a, T> {
 }
 
 pub struct Collector<T: Hash + Eq + 'static> {
-    map: StackHashCounter<T>,
+    map: HashCounter<T>,
     temp_array: TempFdArray<Entry<T>>,
 }
 
 impl<T: Hash + Eq + 'static> Collector<T> {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
-            map: StackHashCounter::<T>::default(),
+            map: HashCounter::<T>::default(),
             temp_array: TempFdArray::<Entry<T>>::new()?,
         })
     }
@@ -256,7 +251,7 @@ mod tests {
 
     #[test]
     fn stack_hash_counter() {
-        let mut stack_hash_counter = StackHashCounter::<usize>::default();
+        let mut stack_hash_counter = HashCounter::<usize>::default();
         stack_hash_counter.add(0, 1);
         stack_hash_counter.add(1, 1);
         stack_hash_counter.add(1, 1);
@@ -283,7 +278,7 @@ mod tests {
 
     #[test]
     fn evict_test() {
-        let mut stack_hash_counter = StackHashCounter::<usize>::default();
+        let mut stack_hash_counter = HashCounter::<usize>::default();
         let mut real_map = BTreeMap::new();
 
         for item in 0..(1 << 10) * 4 {
