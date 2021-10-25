@@ -37,7 +37,7 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 - `cpp` enables the cpp demangle.
 - `flamegraph` enables the flamegraph report format.
 - `protobuf` enables the pprof protobuf report format.
-- `ignore-libc` will ignore the `libc`, `libgcc` and `pthread` while sampling.
+- `ignore-libc` will ignore the `libc`, `libgcc` and `pthread` while sampling. THIS FEATURE IS ONLY AVAILABLE ON LINUX.
   This feature will avoid deadlock in the implementation of `_Unwind_Backtrace`.
 
 ## Flamegraph

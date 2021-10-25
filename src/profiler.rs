@@ -131,7 +131,7 @@ extern "C" fn perf_signal_handler(
 ) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64"))]
+            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
             {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
                 let addr =
