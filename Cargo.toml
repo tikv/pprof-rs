@@ -14,6 +14,7 @@ default = ["cpp"]
 flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
 cpp = ["symbolic-demangle/cpp"]
+ignore-libc = ["findshlibs"]
 
 [dependencies]
 backtrace = "0.3"
@@ -29,6 +30,8 @@ inferno = { version = "0.10", default-features = false, features = ["nameattr"],
 prost = { version = "0.9", optional = true }
 prost-derive = { version = "0.9", optional = true }
 criterion = {version = "0.3", optional = true}
+
+findshlibs = {version = "0.10", optional = true}
 
 [dependencies.symbolic-demangle]
 version = "8.0"

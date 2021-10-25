@@ -7,6 +7,9 @@ use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
 
+#[cfg(feature = "ignore-libc")]
+use findshlibs::{Segment, TargetSharedLibrary, SharedLibrary};
+
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
@@ -23,6 +26,9 @@ pub struct Profiler {
     sample_counter: i32,
 
     running: bool,
+
+    #[cfg(feature = "ignore-libc")]
+    blacklist_segments: Vec<(usize, usize)>,
 }
 
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
@@ -118,9 +124,18 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
-extern "C" fn perf_signal_handler(_signal: c_int) {
+extern "C" fn perf_signal_handler(_signal: c_int, _siginfo: *mut libc::siginfo_t, ucontext: *mut libc::c_void) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
+            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64" ))]
+            {
+                let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+                let addr = unsafe {(*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize};
+                if profiler.is_blacklisted(addr) {
+                    return;
+                }
+            }
+
             let mut bt: [Frame; MAX_DEPTH] =
                 unsafe { std::mem::MaybeUninit::uninit().assume_init() };
             let mut index = 0;
@@ -151,11 +166,46 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
 
 impl Profiler {
     fn new() -> Result<Self> {
+        #[cfg(feature = "ignore-libc")]
+        let blacklist_segments = {
+            let mut segments = Vec::new();
+            TargetSharedLibrary::each(|shlib| {
+                if shlib.name().to_str().and_then(|name| {
+                    if name.contains("libc") || name.contains("libgcc_s") || name.contains("libpthread") {
+                        return Some(())
+                    }
+
+                    None
+                }).is_some() {
+                    for seg in shlib.segments() {
+                        let avam = seg.actual_virtual_memory_address(shlib);
+                        let start = avam.0;
+                        let end = start + seg.len();
+                        segments.push((start, end));
+                    }
+                }
+            });
+            segments
+        };
+
         Ok(Profiler {
             data: Collector::new()?,
             sample_counter: 0,
             running: false,
+
+            #[cfg(feature = "ignore-libc")]
+            blacklist_segments,
         })
+    }
+
+    #[cfg(feature = "ignore-libc")]
+    fn is_blacklisted(&self, addr: usize) -> bool {
+        for libs in &self.blacklist_segments {
+            if addr > libs.0 && addr < libs.1 {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -193,8 +243,9 @@ impl Profiler {
     }
 
     fn register_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::Handler(perf_signal_handler);
-        unsafe { signal::signal(signal::SIGPROF, handler) }?;
+        let handler = signal::SigHandler::SigAction(perf_signal_handler);
+        let sigaction = signal::SigAction::new(handler, signal::SaFlags::SA_SIGINFO, signal::SigSet::empty());
+        unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
 
         Ok(())
     }
@@ -220,6 +271,7 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
     use std::ffi::c_void;
+    use std::ptr::null_mut;
 
     #[cfg(not(target_os = "linux"))]
     #[allow(clippy::wrong_self_convention)]
@@ -307,7 +359,7 @@ mod tests {
         for i in 2..50000 {
             if is_prime_number(i, &prime_numbers) {
                 _v += 1;
-                perf_signal_handler(27);
+                perf_signal_handler(27, null_mut(), null_mut());
             }
         }
         unsafe {
