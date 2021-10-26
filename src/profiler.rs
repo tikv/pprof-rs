@@ -132,7 +132,7 @@ extern "C" fn perf_signal_handler(
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
             #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
-            {
+            if !ucontext.is_null() {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
                 let addr =
                     unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
