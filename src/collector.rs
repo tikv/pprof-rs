@@ -17,14 +17,23 @@ pub struct Entry<T> {
     pub count: isize,
 }
 
+impl<T: Default> Default for Entry<T> {
+    fn default() -> Self {
+        Entry {
+            item: Default::default(),
+            count: 0,
+        }
+    }
+}
+
 pub struct Bucket<T: 'static> {
     pub length: usize,
     entries: Box<[Entry<T>; BUCKETS_ASSOCIATIVITY]>,
 }
 
-impl<T: Eq> Default for Bucket<T> {
+impl<T: Eq + Default> Default for Bucket<T> {
     fn default() -> Bucket<T> {
-        let entries = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+        let entries = Box::new(Default::default());
 
         Self { length: 0, entries }
     }
@@ -96,7 +105,7 @@ pub struct HashCounter<T: Hash + Eq + 'static> {
     buckets: Box<[Bucket<T>; BUCKETS]>,
 }
 
-impl<T: Hash + Eq> Default for HashCounter<T> {
+impl<T: Hash + Eq + Default> Default for HashCounter<T> {
     fn default() -> Self {
         let buckets = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
         let mut counter = Self { buckets };
@@ -139,17 +148,24 @@ pub struct TempFdArray<T: 'static> {
     buffer_index: usize,
 }
 
-impl<T> TempFdArray<T> {
+impl<T: Default> TempFdArray<T> {
     fn new() -> std::io::Result<TempFdArray<T>> {
         let file = NamedTempFile::new()?;
-        let buffer = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+        let mut buffer: Box<[T; BUFFER_LENGTH]> =
+            Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+        buffer.iter_mut().for_each(|item| unsafe {
+            std::ptr::write(item, T::default());
+        });
+
         Ok(Self {
             file,
             buffer,
             buffer_index: 0,
         })
     }
+}
 
+impl<T> TempFdArray<T> {
     fn flush_buffer(&mut self) -> std::io::Result<()> {
         self.buffer_index = 0;
         let buf = unsafe {
@@ -221,14 +237,16 @@ pub struct Collector<T: Hash + Eq + 'static> {
     temp_array: TempFdArray<Entry<T>>,
 }
 
-impl<T: Hash + Eq + 'static> Collector<T> {
+impl<T: Hash + Eq + Default + 'static> Collector<T> {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             map: HashCounter::<T>::default(),
             temp_array: TempFdArray::<Entry<T>>::new()?,
         })
     }
+}
 
+impl<T: Hash + Eq + 'static> Collector<T> {
     pub fn add(&mut self, key: T, count: isize) -> std::io::Result<()> {
         if let Some(evict) = self.map.add(key, count) {
             self.temp_array.push(evict)?;
