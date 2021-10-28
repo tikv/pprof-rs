@@ -26,6 +26,20 @@ pub struct UnresolvedFrames {
     pub thread_id: u64,
 }
 
+impl Default for UnresolvedFrames {
+    #[allow(clippy::uninit_assumed_init)]
+    fn default() -> Self {
+        let frames = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        Self {
+            frames,
+            depth: 0,
+            thread_name: [0; MAX_THREAD_NAME],
+            thread_name_length: 0,
+            thread_id: 0,
+        }
+    }
+}
+
 impl Clone for UnresolvedFrames {
     fn clone(&self) -> Self {
         let slice = self.slice().clone();
