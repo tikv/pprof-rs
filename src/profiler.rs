@@ -27,7 +27,7 @@ pub struct Profiler {
 
     running: bool,
 
-    #[cfg(feature = "ignore-libc")]
+    #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
     blacklist_segments: Vec<(usize, usize)>,
 }
 
@@ -169,12 +169,12 @@ extern "C" fn perf_signal_handler(
     }
 }
 
-#[cfg(feature = "ignore-libc")]
+#[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
 const SHLIB_BLACKLIST: [&str; 3] = ["libc", "libgcc_s", "libpthread"];
 
 impl Profiler {
     fn new() -> Result<Self> {
-        #[cfg(feature = "ignore-libc")]
+        #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
         let blacklist_segments = {
             let mut segments = Vec::new();
             TargetSharedLibrary::each(|shlib| {
@@ -209,12 +209,12 @@ impl Profiler {
             sample_counter: 0,
             running: false,
 
-            #[cfg(feature = "ignore-libc")]
+            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
             blacklist_segments,
         })
     }
 
-    #[cfg(feature = "ignore-libc")]
+    #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
     fn is_blacklisted(&self, addr: usize) -> bool {
         for libs in &self.blacklist_segments {
             if addr > libs.0 && addr < libs.1 {
