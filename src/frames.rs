@@ -27,6 +27,7 @@ pub struct UnresolvedFrames {
 }
 
 impl Default for UnresolvedFrames {
+    #[allow(clippy::uninit_assumed_init)]
     fn default() -> Self {
         let frames = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
         Self {
