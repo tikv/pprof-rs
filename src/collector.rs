@@ -2,33 +2,45 @@
 
 use crate::frames::UnresolvedFrames;
 use std::collections::hash_map::DefaultHasher;
-use std::fs::File;
+
+use std::convert::TryInto;
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::marker::PhantomData;
 
-pub const BUCKETS: usize = (1 << 12);
+use tempfile::NamedTempFile;
+
+pub const BUCKETS: usize = 1 << 12;
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
 pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
+#[derive(Debug)]
 pub struct Entry<T> {
     pub item: T,
     pub count: isize,
 }
 
-pub struct Bucket<T: 'static> {
-    pub length: usize,
-    entries: &'static mut [Entry<T>; BUCKETS_ASSOCIATIVITY],
+impl<T: Default> Default for Entry<T> {
+    fn default() -> Self {
+        Entry {
+            item: Default::default(),
+            count: 0,
+        }
+    }
 }
 
-impl<T: Eq> Default for Bucket<T> {
-    fn default() -> Bucket<T> {
-        let entries = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+#[derive(Debug)]
+pub struct Bucket<T: 'static> {
+    pub length: usize,
+    entries: Box<[Entry<T>; BUCKETS_ASSOCIATIVITY]>,
+}
 
-        Self {
-            length: 0,
-            entries: Box::leak(entries),
-        }
+impl<T: Eq + Default> Default for Bucket<T> {
+    fn default() -> Bucket<T> {
+        let entries = Box::new(Default::default());
+
+        Self { length: 0, entries }
     }
 }
 
@@ -94,25 +106,21 @@ impl<'a, T> Iterator for BucketIterator<'a, T> {
     }
 }
 
-pub struct StackHashCounter<T: Hash + Eq + 'static> {
-    buckets: &'static mut [Bucket<T>; BUCKETS],
+pub struct HashCounter<T: Hash + Eq + 'static> {
+    buckets: Box<[Bucket<T>; BUCKETS]>,
 }
 
-impl<T: Hash + Eq> Default for StackHashCounter<T> {
+impl<T: Hash + Eq + Default + Debug> Default for HashCounter<T> {
     fn default() -> Self {
-        let buckets = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
-        let counter = Self {
-            buckets: Box::leak(buckets),
-        };
-        counter.buckets.iter_mut().for_each(|item| {
-            *item = Bucket::<T>::default();
-        });
+        let mut v: Vec<Bucket<T>> = Vec::with_capacity(BUCKETS);
+        v.resize_with(BUCKETS, Default::default);
+        let buckets = v.into_boxed_slice().try_into().unwrap();
 
-        counter
+        Self { buckets }
     }
 }
 
-impl<T: Hash + Eq> StackHashCounter<T> {
+impl<T: Hash + Eq> HashCounter<T> {
     fn hash(key: &T) -> u64 {
         let mut s = DefaultHasher::new();
         key.hash(&mut s);
@@ -138,24 +146,30 @@ impl<T: Hash + Eq> StackHashCounter<T> {
 }
 
 pub struct TempFdArray<T: 'static> {
-    file: File,
-    buffer: &'static mut [T; BUFFER_LENGTH],
+    file: NamedTempFile,
+    buffer: Box<[T; BUFFER_LENGTH]>,
     buffer_index: usize,
     phantom: PhantomData<T>,
 }
 
-impl<T> TempFdArray<T> {
+impl<T: Default + Debug> TempFdArray<T> {
     fn new() -> std::io::Result<TempFdArray<T>> {
-        let file = tempfile::tempfile()?;
-        let buffer = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
+        let file = NamedTempFile::new()?;
+
+        let mut v: Vec<T> = Vec::with_capacity(BUFFER_LENGTH);
+        v.resize_with(BUFFER_LENGTH, Default::default);
+        let buffer = v.into_boxed_slice().try_into().unwrap();
+
         Ok(Self {
             file,
-            buffer: Box::leak(buffer),
+            buffer,
             buffer_index: 0,
             phantom: PhantomData,
         })
     }
+}
 
+impl<T> TempFdArray<T> {
     fn flush_buffer(&mut self) -> std::io::Result<()> {
         self.buffer_index = 0;
         let buf = unsafe {
@@ -222,18 +236,20 @@ impl<'a, T> Iterator for TempFdArrayIterator<'a, T> {
 }
 
 pub struct Collector<T: Hash + Eq + 'static> {
-    map: StackHashCounter<T>,
+    map: HashCounter<T>,
     temp_array: TempFdArray<Entry<T>>,
 }
 
-impl<T: Hash + Eq + 'static> Collector<T> {
+impl<T: Hash + Eq + Default + Debug + 'static> Collector<T> {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
-            map: StackHashCounter::<T>::default(),
+            map: HashCounter::<T>::default(),
             temp_array: TempFdArray::<Entry<T>>::new()?,
         })
     }
+}
 
+impl<T: Hash + Eq + 'static> Collector<T> {
     pub fn add(&mut self, key: T, count: isize) -> std::io::Result<()> {
         if let Some(evict) = self.map.add(key, count) {
             self.temp_array.push(evict)?;
@@ -257,7 +273,7 @@ mod tests {
 
     #[test]
     fn stack_hash_counter() {
-        let mut stack_hash_counter = StackHashCounter::<usize>::default();
+        let mut stack_hash_counter = HashCounter::<usize>::default();
         stack_hash_counter.add(0, 1);
         stack_hash_counter.add(1, 1);
         stack_hash_counter.add(1, 1);
@@ -284,7 +300,7 @@ mod tests {
 
     #[test]
     fn evict_test() {
-        let mut stack_hash_counter = StackHashCounter::<usize>::default();
+        let mut stack_hash_counter = HashCounter::<usize>::default();
         let mut real_map = BTreeMap::new();
 
         for item in 0..(1 << 10) * 4 {
