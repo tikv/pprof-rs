@@ -1,6 +1,8 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::collections::hash_map::DefaultHasher;
+use std::convert::TryInto;
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -12,6 +14,7 @@ pub const BUCKETS: usize = 1 << 12;
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
 pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
+#[derive(Debug)]
 pub struct Entry<T> {
     pub item: T,
     pub count: isize,
@@ -26,6 +29,7 @@ impl<T: Default> Default for Entry<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct Bucket<T: 'static> {
     pub length: usize,
     entries: Box<[Entry<T>; BUCKETS_ASSOCIATIVITY]>,
@@ -105,15 +109,13 @@ pub struct HashCounter<T: Hash + Eq + 'static> {
     buckets: Box<[Bucket<T>; BUCKETS]>,
 }
 
-impl<T: Hash + Eq + Default> Default for HashCounter<T> {
+impl<T: Hash + Eq + Default + Debug> Default for HashCounter<T> {
     fn default() -> Self {
-        let buckets = Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
-        let mut counter = Self { buckets };
-        counter.buckets.iter_mut().for_each(|item| unsafe {
-            std::ptr::write(item, Bucket::<T>::default());
-        });
+        let mut v: Vec<Bucket<T>> = Vec::with_capacity(BUCKETS);
+        v.resize_with(BUCKETS, Default::default);
+        let buckets = v.into_boxed_slice().try_into().unwrap();
 
-        counter
+        Self { buckets }
     }
 }
 
@@ -148,14 +150,13 @@ pub struct TempFdArray<T: 'static> {
     buffer_index: usize,
 }
 
-impl<T: Default> TempFdArray<T> {
+impl<T: Default + Debug> TempFdArray<T> {
     fn new() -> std::io::Result<TempFdArray<T>> {
         let file = NamedTempFile::new()?;
-        let mut buffer: Box<[T; BUFFER_LENGTH]> =
-            Box::new(unsafe { std::mem::MaybeUninit::uninit().assume_init() });
-        buffer.iter_mut().for_each(|item| unsafe {
-            std::ptr::write(item, T::default());
-        });
+
+        let mut v: Vec<T> = Vec::with_capacity(BUFFER_LENGTH);
+        v.resize_with(BUFFER_LENGTH, Default::default);
+        let buffer = v.into_boxed_slice().try_into().unwrap();
 
         Ok(Self {
             file,
@@ -237,7 +238,7 @@ pub struct Collector<T: Hash + Eq + 'static> {
     temp_array: TempFdArray<Entry<T>>,
 }
 
-impl<T: Hash + Eq + Default + 'static> Collector<T> {
+impl<T: Hash + Eq + Default + Debug + 'static> Collector<T> {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
             map: HashCounter::<T>::default(),
