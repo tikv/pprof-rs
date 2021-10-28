@@ -101,20 +101,23 @@ fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc:
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
-fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
-    write_thread_name_fallback(current_thread, name);
-}
-
-#[cfg(any(target_os = "linux", target_os = "macos"))]
-fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
-    let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
-    let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
-
-    if ret != 0 {
-        write_thread_name_fallback(current_thread, name);
+cfg_if::cfg_if! {
+    if #[cfg(any(not(any(target_os = "linux", target_os = "macos")), target_env = "musl"))] {
+        fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
+            write_thread_name_fallback(current_thread, name);
+        }
+    } else {
+        fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
+            let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
+            let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
+        
+            if ret != 0 {
+                write_thread_name_fallback(current_thread, name);
+            }
+        }
     }
 }
+
 
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
