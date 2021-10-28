@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use pprof::{Collector, StackHashCounter};
+use pprof::{Collector, HashCounter};
 
 fn bench_write_to_collector(c: &mut Criterion) {
     c.bench_function("write_to_collector", |b| {
@@ -22,7 +22,7 @@ fn bench_write_to_collector(c: &mut Criterion) {
     });
 
     c.bench_function("write_into_stack_hash_counter", |b| {
-        let mut collector = StackHashCounter::default();
+        let mut collector = HashCounter::default();
 
         const SIZE: usize = 1000;
 
