@@ -7,7 +7,7 @@ use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
 
-#[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
@@ -27,8 +27,91 @@ pub struct Profiler {
 
     running: bool,
 
-    #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     blacklist_segments: Vec<(usize, usize)>,
+}
+
+pub struct ProfilerGuardBuilder {
+    frequency: c_int,
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    blacklist_segments: Vec<(usize, usize)>,
+}
+
+impl Default for ProfilerGuardBuilder {
+    fn default() -> ProfilerGuardBuilder {
+        ProfilerGuardBuilder {
+            frequency: 99,
+
+            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            blacklist_segments: Vec::new(),
+        }
+    }
+}
+
+impl ProfilerGuardBuilder {
+    pub fn frequency(self, frequency: c_int) -> Self {
+        Self { frequency, ..self }
+    }
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    pub fn blacklist<T: AsRef<str>>(self, blacklist: &[T]) -> Self {
+        let blacklist_segments = {
+            let mut segments = Vec::new();
+            TargetSharedLibrary::each(|shlib| {
+                let in_blacklist = match shlib.name().to_str() {
+                    Some(name) => {
+                        let mut in_blacklist = false;
+                        for blocked_name in blacklist.iter() {
+                            if name.contains(blocked_name.as_ref()) {
+                                in_blacklist = true;
+                            }
+                        }
+
+                        in_blacklist
+                    }
+
+                    None => false,
+                };
+                if in_blacklist {
+                    for seg in shlib.segments() {
+                        let avam = seg.actual_virtual_memory_address(shlib);
+                        let start = avam.0;
+                        let end = start + seg.len();
+                        segments.push((start, end));
+                    }
+                }
+            });
+            segments
+        };
+
+        Self {
+            blacklist_segments,
+            ..self
+        }
+    }
+    pub fn build(self) -> Result<ProfilerGuard<'static>> {
+        trigger_lazy();
+
+        match PROFILER.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
+            }
+            Ok(profiler) => {
+                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+                {
+                    profiler.blacklist_segments = self.blacklist_segments;
+                }
+
+                match profiler.start() {
+                    Ok(()) => Ok(ProfilerGuard::<'static> {
+                        profiler: &PROFILER,
+                        timer: Some(Timer::new(self.frequency)),
+                    }),
+                    Err(err) => Err(err),
+                }
+            }
+        }
+    }
 }
 
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
@@ -45,21 +128,7 @@ fn trigger_lazy() {
 impl ProfilerGuard<'_> {
     /// Start profiling with given sample frequency.
     pub fn new(frequency: c_int) -> Result<ProfilerGuard<'static>> {
-        trigger_lazy();
-
-        match PROFILER.write().as_mut() {
-            Err(err) => {
-                log::error!("Error in creating profiler: {}", err);
-                Err(Error::CreatingError)
-            }
-            Ok(profiler) => match profiler.start() {
-                Ok(()) => Ok(ProfilerGuard::<'static> {
-                    profiler: &PROFILER,
-                    timer: Some(Timer::new(frequency)),
-                }),
-                Err(err) => Err(err),
-            },
-        }
+        ProfilerGuardBuilder::default().frequency(frequency).build()
     }
 
     /// Generate a report
@@ -74,10 +143,17 @@ impl<'a> Drop for ProfilerGuard<'a> {
 
         match self.profiler.write().as_mut() {
             Err(_) => {}
-            Ok(profiler) => match profiler.stop() {
-                Ok(()) => {}
-                Err(err) => log::error!("error while stopping profiler {}", err),
-            },
+            Ok(profiler) => {
+                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+                {
+                    profiler.blacklist_segments = Vec::new();
+                }
+
+                match profiler.stop() {
+                    Ok(()) => {}
+                    Err(err) => log::error!("error while stopping profiler {}", err),
+                }
+            }
         }
     }
 }
@@ -125,7 +201,7 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
 #[cfg_attr(
-    not(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux")),
+    not(all(target_arch = "x86_64", target_os = "linux")),
     allow(unused_variables)
 )]
 extern "C" fn perf_signal_handler(
@@ -135,7 +211,7 @@ extern "C" fn perf_signal_handler(
 ) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
+            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
             if !ucontext.is_null() {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
                 let addr =
@@ -173,52 +249,19 @@ extern "C" fn perf_signal_handler(
     }
 }
 
-#[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
-const SHLIB_BLACKLIST: [&str; 3] = ["libc", "libgcc_s", "libpthread"];
-
 impl Profiler {
     fn new() -> Result<Self> {
-        #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
-        let blacklist_segments = {
-            let mut segments = Vec::new();
-            TargetSharedLibrary::each(|shlib| {
-                let in_blacklist = match shlib.name().to_str() {
-                    Some(name) => {
-                        let mut in_blacklist = false;
-                        for blocked_name in SHLIB_BLACKLIST.iter() {
-                            if name.contains(blocked_name) {
-                                in_blacklist = true;
-                            }
-                        }
-
-                        in_blacklist
-                    }
-
-                    None => false,
-                };
-                if in_blacklist {
-                    for seg in shlib.segments() {
-                        let avam = seg.actual_virtual_memory_address(shlib);
-                        let start = avam.0;
-                        let end = start + seg.len();
-                        segments.push((start, end));
-                    }
-                }
-            });
-            segments
-        };
-
         Ok(Profiler {
             data: Collector::new()?,
             sample_counter: 0,
             running: false,
 
-            #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
-            blacklist_segments,
+            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            blacklist_segments: Vec::new(),
         })
     }
 
-    #[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     fn is_blacklisted(&self, addr: usize) -> bool {
         for libs in &self.blacklist_segments {
             if addr > libs.0 && addr < libs.1 {
