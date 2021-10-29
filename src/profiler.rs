@@ -7,7 +7,7 @@ use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
 
-#[cfg(feature = "ignore-libc")]
+#[cfg(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
@@ -124,6 +124,10 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
+#[cfg_attr(
+    not(all(feature = "ignore-libc", target_arch = "x86_64", target_os = "linux")),
+    allow(unused_variables)
+)]
 extern "C" fn perf_signal_handler(
     _signal: c_int,
     _siginfo: *mut libc::siginfo_t,
@@ -287,14 +291,16 @@ impl Profiler {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
+
     use std::cell::RefCell;
     use std::ffi::c_void;
+
     use std::ptr::null_mut;
 
     extern "C" {
-        #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;
@@ -304,7 +310,6 @@ mod tests {
         static FLAG: RefCell<bool> = RefCell::new(false);
     }
 
-    #[cfg(target_os = "linux")]
     extern "C" fn malloc_hook(size: usize) -> *mut c_void {
         unsafe {
             __malloc_hook = None;
