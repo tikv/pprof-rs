@@ -7,10 +7,7 @@ use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
 
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"),
-    target_os = "linux"
-))]
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
@@ -30,13 +27,13 @@ pub struct Profiler {
 
     running: bool,
 
-    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
     blacklist_segments: Vec<(usize, usize)>,
 }
 
 pub struct ProfilerGuardBuilder {
     frequency: c_int,
-    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
     blacklist_segments: Vec<(usize, usize)>,
 }
 
@@ -45,7 +42,7 @@ impl Default for ProfilerGuardBuilder {
         ProfilerGuardBuilder {
             frequency: 99,
 
-            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
             blacklist_segments: Vec::new(),
         }
     }
@@ -55,7 +52,7 @@ impl ProfilerGuardBuilder {
     pub fn frequency(self, frequency: c_int) -> Self {
         Self { frequency, ..self }
     }
-    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub fn blacklist<T: AsRef<str>>(self, blacklist: &[T]) -> Self {
         let blacklist_segments = {
             let mut segments = Vec::new();
@@ -100,7 +97,7 @@ impl ProfilerGuardBuilder {
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
-                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+                #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
                 {
                     profiler.blacklist_segments = self.blacklist_segments;
                 }
@@ -197,7 +194,7 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 #[no_mangle]
 #[allow(clippy::uninit_assumed_init)]
 #[cfg_attr(
-    not(all(target_arch = "x86_64", target_os = "linux")),
+    not(all(any(target_arch = "x86_64", target_arch = "aarch64"))),
     allow(unused_variables)
 )]
 extern "C" fn perf_signal_handler(
@@ -207,11 +204,37 @@ extern "C" fn perf_signal_handler(
 ) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
             if !ucontext.is_null() {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+
+                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
                 let addr =
                     unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
+
+                #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+                let addr = unsafe {
+                    let mcontext = (*ucontext).uc_mcontext;
+                    if mcontext.is_null() {
+                        0
+                    } else {
+                        (*mcontext).__ss.__rip as usize
+                    }
+                };
+
+                #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+                let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
+
+                #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+                let addr = unsafe {
+                    let mcontext = (*ucontext).uc_mcontext;
+                    if mcontext.is_null() {
+                        0
+                    } else {
+                        (*mcontext).__ss.__pc as usize
+                    }
+                };
+
                 if profiler.is_blacklisted(addr) {
                     return;
                 }
@@ -252,12 +275,12 @@ impl Profiler {
             sample_counter: 0,
             running: false,
 
-            #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
             blacklist_segments: Vec::new(),
         })
     }
 
-    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
     fn is_blacklisted(&self, addr: usize) -> bool {
         for libs in &self.blacklist_segments {
             if addr > libs.0 && addr < libs.1 {
