@@ -7,7 +7,10 @@ use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
 
-#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "arm"),
+    target_os = "linux"
+))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
@@ -143,17 +146,10 @@ impl<'a> Drop for ProfilerGuard<'a> {
 
         match self.profiler.write().as_mut() {
             Err(_) => {}
-            Ok(profiler) => {
-                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-                {
-                    profiler.blacklist_segments = Vec::new();
-                }
-
-                match profiler.stop() {
-                    Ok(()) => {}
-                    Err(err) => log::error!("error while stopping profiler {}", err),
-                }
-            }
+            Ok(profiler) => match profiler.stop() {
+                Ok(()) => {}
+                Err(err) => log::error!("error while stopping profiler {}", err),
+            },
         }
     }
 }

@@ -12,7 +12,11 @@ fn deep_recursive(depth: i32) {
 }
 
 fn main() {
-    let guard = pprof::ProfilerGuard::new(1000).unwrap();
+    let guard = pprof::ProfilerGuardBuilder::default()
+        .frequency(1000)
+        .blacklist(&["libc", "libgcc", "pthread"])
+        .build()
+        .unwrap();
 
     for _ in 0..10000 {
         deep_recursive(20);

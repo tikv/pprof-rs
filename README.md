@@ -37,8 +37,6 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 - `cpp` enables the cpp demangle.
 - `flamegraph` enables the flamegraph report format.
 - `protobuf` enables the pprof protobuf report format.
-- `ignore-libc` will ignore the `libc`, `libgcc` and `pthread` while sampling. THIS FEATURE IS ONLY AVAILABLE ON LINUX.
-  This feature will avoid deadlock in the implementation of `_Unwind_Backtrace`.
 
 ## Flamegraph
 
@@ -214,6 +212,12 @@ Unfortunately, there is no 100% robust stack tracing method. [Some related resea
 **WARN:** as described in former gperftools documents, libunwind provided by `libgcc` is not signal safe.
 
 > libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
+
+This can be resolved by adding a blacklist:
+
+```rust
+let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blacklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+```
 
 ### Signal Safety
 
