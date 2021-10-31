@@ -14,6 +14,9 @@ use crate::{Error, Result};
 pub struct Report {
     /// key is a backtrace captured by profiler and value is count of it.
     pub data: HashMap<Frames, isize>,
+    pub sample_rate: libc::c_int,
+    pub start: std::time::SystemTime,
+    pub until: std::time::SystemTime,
 }
 
 /// The presentation of an unsymbolicated report which is actually an `HashMap` from `UnresolvedFrames` to isize (count).
@@ -26,13 +29,31 @@ pub struct UnresolvedReport {
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
     profiler: &'a RwLock<Result<Profiler>>,
+
+    sample_rate: libc::c_int,
+    start: std::time::SystemTime,
+    until: std::time::SystemTime,
 }
 
+unsafe impl Send for ReportBuilder<'_> {}
+unsafe impl Sync for ReportBuilder<'_> {}
+unsafe impl Send for Report {}
+unsafe impl Sync for Report {}
+
 impl<'a> ReportBuilder<'a> {
-    pub(crate) fn new(profiler: &'a RwLock<Result<Profiler>>) -> Self {
+    pub(crate) fn new(
+        profiler: &'a RwLock<Result<Profiler>>,
+        sample_rate: libc::c_int,
+        start: std::time::SystemTime,
+        until: std::time::SystemTime,
+    ) -> Self {
         Self {
             frames_post_processor: None,
             profiler,
+
+            sample_rate,
+            start,
+            until,
         }
     }
 
@@ -117,7 +138,12 @@ impl<'a> ReportBuilder<'a> {
                     }
                 });
 
-                Ok(Report { data: hash_map })
+                Ok(Report {
+                    data: hash_map,
+                    sample_rate: self.sample_rate,
+                    start: self.start,
+                    until: self.until,
+                })
             }
         }
     }
@@ -137,6 +163,97 @@ impl Debug for Report {
         }
 
         Ok(())
+    }
+}
+
+impl Report {
+    pub fn fold<W>(&self, with_thread_name: bool, mut writer: W) -> Result<()>
+    where
+        W: std::io::Write,
+    {
+        for (key, value) in self.data.iter() {
+            if with_thread_name {
+                if !key.thread_name.is_empty() {
+                    write!(writer, "{};", key.thread_name)?;
+                } else {
+                    write!(writer, "{:?};", key.thread_id)?;
+                }
+            }
+
+            let last_frame = key.frames.len() - 1;
+            for (index, frame) in key.frames.iter().rev().enumerate() {
+                let last_symbol = frame.len() - 1;
+                for (index, symbol) in frame.iter().rev().enumerate() {
+                    if index == last_symbol {
+                        write!(writer, "{}", symbol)?;
+                    } else {
+                        write!(writer, "{};", symbol)?;
+                    }
+                }
+
+                if index != last_frame {
+                    write!(writer, ";")?;
+                }
+            }
+
+            writeln!(writer, " {}", value)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "pyroscope")]
+mod pyroscope {
+    use super::*;
+
+    impl Report {
+        pub async fn pyroscope_ingest<S: AsRef<str>, N: AsRef<str>>(
+            &self,
+            url: S,
+            application_name: N,
+        ) -> Result<()> {
+            let mut buffer = Vec::new();
+
+            self.fold(true, &mut buffer)?;
+
+            let client = reqwest::Client::new();
+            // TODO: handle the error of this request
+            client
+                .post(format!("{}/ingest", url.as_ref()))
+                .header("Content-Type", "application/json")
+                .query(&[
+                    ("name", application_name.as_ref()),
+                    (
+                        "from",
+                        &format!(
+                            "{}",
+                            self.start
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                        ),
+                    ),
+                    (
+                        "until",
+                        &format!(
+                            "{}",
+                            self.until
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                        ),
+                    ),
+                    ("format", "folded"),
+                    ("sampleRate", &format!("{}", self.sample_rate)),
+                    ("spyName", "pprof-rs"),
+                ])
+                .body(buffer)
+                .send()
+                .await?;
+
+            Ok(())
+        }
     }
 }
 
@@ -164,33 +281,11 @@ mod flamegraph {
         where
             W: Write,
         {
-            let lines: Vec<String> = self
-                .data
-                .iter()
-                .map(|(key, value)| {
-                    let mut line = String::new();
-                    if !key.thread_name.is_empty() {
-                        line.push_str(&key.thread_name);
-                    } else {
-                        line.push_str(&format!("{:?}", key.thread_id));
-                    }
-                    line.push(';');
+            if !self.data.is_empty() {
+                let mut buffer = Vec::new();
 
-                    for frame in key.frames.iter().rev() {
-                        for symbol in frame.iter().rev() {
-                            line.push_str(&format!("{}", symbol));
-                            line.push(';');
-                        }
-                    }
-
-                    line.pop().unwrap_or_default();
-                    line.push_str(&format!(" {}", value));
-
-                    line
-                })
-                .collect();
-            if !lines.is_empty() {
-                flamegraph::from_lines(options, lines.iter().map(|s| &**s), writer).unwrap();
+                self.fold(true, &mut buffer)?;
+                flamegraph::from_reader::<&[u8], _>(options, buffer.as_ref(), writer).unwrap();
                 // TODO: handle this error
             }
 

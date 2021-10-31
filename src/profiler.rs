@@ -29,6 +29,9 @@ pub struct Profiler {
 pub struct ProfilerGuard<'a> {
     profiler: &'a RwLock<Result<Profiler>>,
     timer: Option<Timer>,
+
+    sample_rate: c_int,
+    start: std::time::SystemTime,
 }
 
 fn trigger_lazy() {
@@ -50,6 +53,9 @@ impl ProfilerGuard<'_> {
                 Ok(()) => Ok(ProfilerGuard::<'static> {
                     profiler: &PROFILER,
                     timer: Some(Timer::new(frequency)),
+
+                    sample_rate: frequency,
+                    start: std::time::SystemTime::now(),
                 }),
                 Err(err) => Err(err),
             },
@@ -58,7 +64,12 @@ impl ProfilerGuard<'_> {
 
     /// Generate a report
     pub fn report(&self) -> ReportBuilder {
-        ReportBuilder::new(self.profiler)
+        ReportBuilder::new(
+            self.profiler,
+            self.sample_rate,
+            self.start,
+            std::time::SystemTime::now(),
+        )
     }
 }
 
