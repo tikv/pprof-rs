@@ -42,12 +42,12 @@ jobs:
 
     steps:
       - name: Install Dependency on Mac OS
-        if: ${{ matrix.os == "macos-latest" }}
+        if: ${{ matrix.os == 'macos-latest' }}
         run: |
           brew install openssl
       
       - name: Install Dependency on Ubuntu
-        if: ${{ matrix.os == "ubuntu-latest" }}
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
@@ -79,12 +79,12 @@ jobs:
 
     steps:
       - name: Install Dependency on Mac OS
-        if: ${{ matrix.os == "macos-latest" }}
+        if: ${{ matrix.os == 'macos-latest' }}
         run: |
           brew install openssl
       
       - name: Install Dependency on Ubuntu
-        if: ${{ matrix.os == "ubuntu-latest" }}
+        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
