@@ -41,6 +41,17 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Install Dependency on Mac OS
+        if: ${{ matrix.os == "macos-latest" }}
+        run: |
+          brew install openssl
+      
+      - name: Install Dependency on Ubuntu
+        if: ${{ matrix.os == "ubuntu-latest" }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
@@ -67,6 +78,17 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Install Dependency on Mac OS
+        if: ${{ matrix.os == "macos-latest" }}
+        run: |
+          brew install openssl
+      
+      - name: Install Dependency on Ubuntu
+        if: ${{ matrix.os == "ubuntu-latest" }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
