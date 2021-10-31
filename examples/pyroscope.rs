@@ -21,7 +21,7 @@ async fn main() {
     .await;
 
     for s in &[1, 10, 40, 50] {
-        let result = fibonacci(std::hint::black_box(*s));
+        let result = fibonacci(cirterion::black_box(*s));
         println!("fibonacci({}) -> {}", *s, result);
     }
 
