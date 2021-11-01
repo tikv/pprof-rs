@@ -5,6 +5,11 @@ extern crate libc;
 use pprof;
 use std::ffi::c_void;
 
+#[cfg(not(target_os = "linux"))]
+#[allow(clippy::wrong_self_convention)]
+#[allow(non_upper_case_globals)]
+static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
 extern "C" {
     static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 

@@ -23,6 +23,8 @@ rustc-demangle = "0.1"
 spin = "0.5"
 tempfile = "3.1"
 thiserror = "1.0"
+findshlibs = "0.10"
+cfg-if = "1.0"
 
 inferno = { version = "0.9", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.6", optional = true }

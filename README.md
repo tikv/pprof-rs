@@ -30,6 +30,13 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler::perf_signal_handler::h7b995c4ab2e66493 -> FRAME: Unknown -> FRAME: prime_number::main::h47f1058543990c8b -> FRAME: std::rt::lang_start::{{closure}}::h4262e250f8024b06 -> FRAME: std::rt::lang_start_internal::{{closure}}::h812f70926ebbddd0 -> std::panicking::try::do_call::h3210e2ce6a68897b -> FRAME: __rust_maybe_catch_panic -> FRAME: std::panicking::try::h28c2e2ec1c3871ce -> std::panic::catch_unwind::h05e542185e35aabf -> std::rt::lang_start_internal::hd7efcfd33686f472 -> FRAME: main -> FRAME: __libc_start_main -> FRAME: _start -> FRAME: Unknown -> THREAD: prime_number 1
 ```
 
+
+## Features
+
+- `cpp` enables the cpp demangle.
+- `flamegraph` enables the flamegraph report format.
+- `protobuf` enables the pprof protobuf report format.
+
 ## Flamegraph
 
 ```toml
@@ -174,6 +181,12 @@ Unfortunately, there is no 100% robust stack tracing method. [Some related resea
 **WARN:** as described in former gperftools documents, libunwind provided by `libgcc` is not signal safe. 
 
 > libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
+
+This can be resolved by adding a blocklist:
+
+```rust
+let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+```
 
 ### Signal Safety
 

@@ -264,9 +264,23 @@ impl<T: Hash + Eq + 'static> Collector<T> {
 }
 
 #[cfg(test)]
+mod test_utils {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    pub fn add_map(hashmap: &mut BTreeMap<usize, isize>, entry: &Entry<usize>) {
+        match hashmap.get_mut(&entry.item) {
+            None => {
+                hashmap.insert(entry.item, entry.count);
+            }
+            Some(count) => *count += entry.count,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
     use std::collections::BTreeMap;
     use std::ffi::c_void;
     use test::Bencher;
@@ -289,15 +303,6 @@ mod tests {
         });
     }
 
-    fn add_map(hashmap: &mut BTreeMap<usize, isize>, entry: &Entry<usize>) {
-        match hashmap.get_mut(&entry.item) {
-            None => {
-                hashmap.insert(entry.item, entry.count);
-            }
-            Some(count) => *count += entry.count,
-        }
-    }
-
     #[test]
     fn evict_test() {
         let mut stack_hash_counter = HashCounter::<usize>::default();
@@ -308,14 +313,14 @@ mod tests {
                 match stack_hash_counter.add(item, 1) {
                     None => {}
                     Some(evict) => {
-                        add_map(&mut real_map, &evict);
+                        test_utils::add_map(&mut real_map, &evict);
                     }
                 }
             }
         }
 
         stack_hash_counter.iter().for_each(|entry| {
-            add_map(&mut real_map, &entry);
+            test_utils::add_map(&mut real_map, &entry);
         });
 
         for item in 0..(1 << 10) * 4 {
@@ -342,8 +347,8 @@ mod tests {
             }
         }
 
-        collector.iter().unwrap().for_each(|entry| {
-            add_map(&mut real_map, &entry);
+        collector.try_iter().unwrap().for_each(|entry| {
+            test_utils::add_map(&mut real_map, &entry);
         });
 
         for item in 0..(1 << 12) * 4 {
@@ -358,6 +363,15 @@ mod tests {
             }
         }
     }
+}
+
+#[cfg(test)]
+#[cfg(target_os = "linux")]
+mod malloc_free_test {
+    use super::*;
+    use std::cell::RefCell;
+    use std::collections::BTreeMap;
+    use std::ffi::c_void;
 
     extern "C" {
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
@@ -408,8 +422,8 @@ mod tests {
             assert_eq!(*flag.borrow(), false);
         });
 
-        collector.iter().unwrap().for_each(|entry| {
-            add_map(&mut real_map, &entry);
+        collector.try_iter().unwrap().for_each(|entry| {
+            test_utils::add_map(&mut real_map, &entry);
         });
 
         for item in 0..(1 << 10) * 4 {
