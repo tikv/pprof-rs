@@ -14,7 +14,7 @@ fn deep_recursive(depth: i32) {
 fn main() {
     let guard = pprof::ProfilerGuardBuilder::default()
         .frequency(1000)
-        .blacklist(&["libc", "libgcc", "pthread"])
+        .blocklist(&["libc", "libgcc", "pthread"])
         .build()
         .unwrap();
 

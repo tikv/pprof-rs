@@ -24,10 +24,10 @@
 //! More configuration can be passed through `ProfilerGuardBuilder`:
 //!
 //! ```rust
-//! let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blacklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+//! let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread"]).build().unwrap();
 //! ```
 //!
-//! The frequency means the sampler frequency, and the `blacklist` means the
+//! The frequency means the sampler frequency, and the `blocklist` means the
 //! profiler will ignore the sample whose first frame is from library containing
 //! these strings.
 //!

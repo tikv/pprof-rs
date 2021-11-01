@@ -28,13 +28,13 @@ pub struct Profiler {
     running: bool,
 
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    blacklist_segments: Vec<(usize, usize)>,
+    blocklist_segments: Vec<(usize, usize)>,
 }
 
 pub struct ProfilerGuardBuilder {
     frequency: c_int,
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    blacklist_segments: Vec<(usize, usize)>,
+    blocklist_segments: Vec<(usize, usize)>,
 }
 
 impl Default for ProfilerGuardBuilder {
@@ -43,7 +43,7 @@ impl Default for ProfilerGuardBuilder {
             frequency: 99,
 
             #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-            blacklist_segments: Vec::new(),
+            blocklist_segments: Vec::new(),
         }
     }
 }
@@ -53,25 +53,25 @@ impl ProfilerGuardBuilder {
         Self { frequency, ..self }
     }
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    pub fn blacklist<T: AsRef<str>>(self, blacklist: &[T]) -> Self {
-        let blacklist_segments = {
+    pub fn blocklist<T: AsRef<str>>(self, blocklist: &[T]) -> Self {
+        let blocklist_segments = {
             let mut segments = Vec::new();
             TargetSharedLibrary::each(|shlib| {
-                let in_blacklist = match shlib.name().to_str() {
+                let in_blocklist = match shlib.name().to_str() {
                     Some(name) => {
-                        let mut in_blacklist = false;
-                        for blocked_name in blacklist.iter() {
+                        let mut in_blocklist = false;
+                        for blocked_name in blocklist.iter() {
                             if name.contains(blocked_name.as_ref()) {
-                                in_blacklist = true;
+                                in_blocklist = true;
                             }
                         }
 
-                        in_blacklist
+                        in_blocklist
                     }
 
                     None => false,
                 };
-                if in_blacklist {
+                if in_blocklist {
                     for seg in shlib.segments() {
                         let avam = seg.actual_virtual_memory_address(shlib);
                         let start = avam.0;
@@ -84,7 +84,7 @@ impl ProfilerGuardBuilder {
         };
 
         Self {
-            blacklist_segments,
+            blocklist_segments,
             ..self
         }
     }
@@ -99,7 +99,7 @@ impl ProfilerGuardBuilder {
             Ok(profiler) => {
                 #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
                 {
-                    profiler.blacklist_segments = self.blacklist_segments;
+                    profiler.blocklist_segments = self.blocklist_segments;
                 }
 
                 match profiler.start() {
@@ -235,7 +235,7 @@ extern "C" fn perf_signal_handler(
                     }
                 };
 
-                if profiler.is_blacklisted(addr) {
+                if profiler.is_blocklisted(addr) {
                     return;
                 }
             }
@@ -276,13 +276,13 @@ impl Profiler {
             running: false,
 
             #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-            blacklist_segments: Vec::new(),
+            blocklist_segments: Vec::new(),
         })
     }
 
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    fn is_blacklisted(&self, addr: usize) -> bool {
-        for libs in &self.blacklist_segments {
+    fn is_blocklisted(&self, addr: usize) -> bool {
+        for libs in &self.blocklist_segments {
             if addr > libs.0 && addr < libs.1 {
                 return true;
             }

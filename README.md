@@ -213,10 +213,10 @@ Unfortunately, there is no 100% robust stack tracing method. [Some related resea
 
 > libgcc's unwind method is not safe to use from signal handlers. One particular cause of deadlock is when profiling tick happens when program is propagating thrown exception.
 
-This can be resolved by adding a blacklist:
+This can be resolved by adding a blocklist:
 
 ```rust
-let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blacklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread"]).build().unwrap();
 ```
 
 ### Signal Safety
