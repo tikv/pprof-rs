@@ -204,38 +204,40 @@ extern "C" fn perf_signal_handler(
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
             #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
-            if !ucontext.is_null() {
-                let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
-
-                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-                let addr =
-                    unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
-
-                #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
-                let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
-                    if mcontext.is_null() {
-                        0
-                    } else {
-                        (*mcontext).__ss.__rip as usize
+            {
+                if !ucontext.is_null() {
+                    let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+    
+                    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+                    let addr =
+                        unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
+    
+                    #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+                    let addr = unsafe {
+                        let mcontext = (*ucontext).uc_mcontext;
+                        if mcontext.is_null() {
+                            0
+                        } else {
+                            (*mcontext).__ss.__rip as usize
+                        }
+                    };
+    
+                    #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+                    let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
+    
+                    #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+                    let addr = unsafe {
+                        let mcontext = (*ucontext).uc_mcontext;
+                        if mcontext.is_null() {
+                            0
+                        } else {
+                            (*mcontext).__ss.__pc as usize
+                        }
+                    };
+    
+                    if profiler.is_blocklisted(addr) {
+                        return;
                     }
-                };
-
-                #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-                let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
-
-                #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
-                let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
-                    if mcontext.is_null() {
-                        0
-                    } else {
-                        (*mcontext).__ss.__pc as usize
-                    }
-                };
-
-                if profiler.is_blocklisted(addr) {
-                    return;
                 }
             }
 
