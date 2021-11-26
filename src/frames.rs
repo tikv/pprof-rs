@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::path::PathBuf;
 
@@ -19,7 +20,7 @@ pub struct UnresolvedFramesSlice<'a> {
 }
 
 pub struct UnresolvedFrames {
-    pub frames: [Frame; MAX_DEPTH],
+    pub frames: [MaybeUninit<Frame>; MAX_DEPTH],
     pub depth: usize,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
@@ -27,7 +28,6 @@ pub struct UnresolvedFrames {
 }
 
 impl Default for UnresolvedFrames {
-    #[allow(clippy::uninit_assumed_init)]
     fn default() -> Self {
         let frames = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
         Self {
@@ -42,24 +42,25 @@ impl Default for UnresolvedFrames {
 
 impl Clone for UnresolvedFrames {
     fn clone(&self) -> Self {
-        let slice = self.slice().clone();
+        let slice = self.inited_slice().clone();
         Self::new(slice.frames, slice.thread_name, slice.thread_id)
     }
 }
 
 impl Debug for UnresolvedFrames {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        self.slice().fmt(f)
+        self.inited_slice().fmt(f)
     }
 }
 
 impl UnresolvedFrames {
-    #[allow(clippy::uninit_assumed_init)]
     pub fn new(bt: &[Frame], tn: &[u8], thread_id: u64) -> Self {
         let depth = bt.len();
-        let mut frames: [Frame; MAX_DEPTH] =
+        let mut frames: [MaybeUninit<Frame>; MAX_DEPTH] =
             unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-        frames[0..depth].clone_from_slice(bt);
+        for (index, elem) in frames[..depth].iter_mut().enumerate() {
+            elem.write(bt[index].clone());
+        }
 
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
@@ -74,9 +75,11 @@ impl UnresolvedFrames {
         }
     }
 
-    fn slice(&self) -> UnresolvedFramesSlice {
+    fn inited_slice(&self) -> UnresolvedFramesSlice {
         UnresolvedFramesSlice {
-            frames: &self.frames[0..self.depth],
+            frames: unsafe {
+                &*(&self.frames[..self.depth] as *const [MaybeUninit<Frame>] as *const [Frame])
+            },
             thread_name: &self.thread_name[0..self.thread_name_length],
             thread_id: self.thread_id,
         }
@@ -85,7 +88,7 @@ impl UnresolvedFrames {
 
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
-        let (frames1, frames2) = (self.slice().frames, other.slice().frames);
+        let (frames1, frames2) = (self.inited_slice().frames, other.inited_slice().frames);
         if self.thread_id != other.thread_id || frames1.len() != frames2.len() {
             false
         } else {
@@ -100,7 +103,7 @@ impl Eq for UnresolvedFrames {}
 
 impl Hash for UnresolvedFrames {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.slice()
+        self.inited_slice()
             .frames
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
@@ -194,7 +197,7 @@ impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
 
-        let mut frame_iter = frames.slice().frames.iter();
+        let mut frame_iter = frames.inited_slice().frames.iter();
 
         while let Some(frame) = frame_iter.next() {
             let mut symbols = Vec::new();

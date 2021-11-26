@@ -1,6 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::convert::TryInto;
+use std::mem::MaybeUninit;
 use std::os::raw::c_int;
 
 use backtrace::Frame;
@@ -192,7 +193,6 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 }
 
 #[no_mangle]
-#[allow(clippy::uninit_assumed_init)]
 #[cfg_attr(
     not(all(any(target_arch = "x86_64", target_arch = "aarch64"))),
     allow(unused_variables)
@@ -240,14 +240,13 @@ extern "C" fn perf_signal_handler(
                 }
             }
 
-            let mut bt: [Frame; MAX_DEPTH] =
-                unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+            let mut bt: [MaybeUninit<Frame>; 1000] = unsafe { MaybeUninit::uninit().assume_init() };
             let mut index = 0;
 
             unsafe {
                 backtrace::trace_unsynchronized(|frame| {
                     if index < MAX_DEPTH {
-                        bt[index] = frame.clone();
+                        bt[index].write(frame.clone());
                         index += 1;
                         true
                     } else {
@@ -255,6 +254,9 @@ extern "C" fn perf_signal_handler(
                     }
                 });
             }
+
+            let bt: &[Frame] =
+                unsafe { &*(&bt[..index] as *const [MaybeUninit<Frame>] as *const [Frame]) };
 
             let current_thread = unsafe { libc::pthread_self() };
             let mut name = [0; MAX_THREAD_NAME];
