@@ -190,6 +190,17 @@ pub struct Frames {
     pub thread_id: u64,
 }
 
+impl Frames {
+    /// Returns a thread identifier (name or ID) as a string.
+    pub fn thread_name_or_id(&self) -> String {
+        if !self.thread_name.is_empty() {
+            self.thread_name.clone()
+        } else {
+            format!("{:?}", self.thread_id)
+        }
+    }
+}
+
 impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();

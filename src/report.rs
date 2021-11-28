@@ -2,37 +2,47 @@
 
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::time::SystemTime;
 
 use parking_lot::RwLock;
 
 use crate::frames::{Frames, UnresolvedFrames};
 use crate::profiler::Profiler;
+use crate::timer::ReportTiming;
 
 use crate::{Error, Result};
 
 /// The final presentation of a report which is actually an `HashMap` from `Frames` to isize (count).
 pub struct Report {
-    /// key is a backtrace captured by profiler and value is count of it.
+    /// Key is a backtrace captured by profiler and value is count of it.
     pub data: HashMap<Frames, isize>,
+
+    /// Collection frequency, start time, duration.
+    pub timing: ReportTiming,
 }
 
 /// The presentation of an unsymbolicated report which is actually an `HashMap` from `UnresolvedFrames` to isize (count).
 pub struct UnresolvedReport {
     /// key is a backtrace captured by profiler and value is count of it.
     pub data: HashMap<UnresolvedFrames, isize>,
+
+    /// Collection frequency, start time, duration.
+    pub timing: ReportTiming,
 }
 
 /// A builder of `Report` and `UnresolvedReport`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
     profiler: &'a RwLock<Result<Profiler>>,
+    timing: ReportTiming,
 }
 
 impl<'a> ReportBuilder<'a> {
-    pub(crate) fn new(profiler: &'a RwLock<Result<Profiler>>) -> Self {
+    pub(crate) fn new(profiler: &'a RwLock<Result<Profiler>>, timing: ReportTiming) -> Self {
         Self {
             frames_post_processor: None,
             profiler,
+            timing,
         }
     }
 
@@ -78,7 +88,10 @@ impl<'a> ReportBuilder<'a> {
                     }
                 });
 
-                Ok(UnresolvedReport { data: hash_map })
+                Ok(UnresolvedReport {
+                    data: hash_map,
+                    timing: self.timing.clone(),
+                })
             }
         }
     }
@@ -117,7 +130,10 @@ impl<'a> ReportBuilder<'a> {
                     }
                 });
 
-                Ok(Report { data: hash_map })
+                Ok(Report {
+                    data: hash_map,
+                    timing: self.timing.clone(),
+                })
             }
         }
     }
@@ -168,12 +184,7 @@ mod flamegraph {
                 .data
                 .iter()
                 .map(|(key, value)| {
-                    let mut line = String::new();
-                    if !key.thread_name.is_empty() {
-                        line.push_str(&key.thread_name);
-                    } else {
-                        line.push_str(&format!("{:?}", key.thread_id));
-                    }
+                    let mut line = key.thread_name_or_id();
                     line.push(';');
 
                     for frame in key.frames.iter().rev() {
@@ -205,22 +216,34 @@ mod protobuf {
     use crate::protos;
     use std::collections::HashSet;
 
+    const SAMPLES: &str = "samples";
+    const COUNT: &str = "count";
+    const CPU: &str = "cpu";
+    const NANOSECONDS: &str = "nanoseconds";
+    const THREAD: &str = "thread";
+
     impl Report {
-        // `pprof` will generate google's pprof format report
+        /// `pprof` will generate google's pprof format report.
         pub fn pprof(&self) -> crate::Result<protos::Profile> {
-            let mut dudup_str = HashSet::new();
+            let mut dedup_str = HashSet::new();
             for key in self.data.iter().map(|(key, _)| key) {
+                dedup_str.insert(key.thread_name_or_id());
                 for frame in key.frames.iter() {
                     for symbol in frame {
-                        dudup_str.insert(symbol.name());
-                        dudup_str.insert(symbol.sys_name().into_owned());
-                        dudup_str.insert(symbol.filename().into_owned());
+                        dedup_str.insert(symbol.name());
+                        dedup_str.insert(symbol.sys_name().into_owned());
+                        dedup_str.insert(symbol.filename().into_owned());
                     }
                 }
             }
+            dedup_str.insert(SAMPLES.into());
+            dedup_str.insert(COUNT.into());
+            dedup_str.insert(CPU.into());
+            dedup_str.insert(NANOSECONDS.into());
+            dedup_str.insert(THREAD.into());
             // string table's first element must be an empty string
             let mut str_tbl = vec!["".to_owned()];
-            str_tbl.extend(dudup_str.into_iter());
+            str_tbl.extend(dedup_str.into_iter());
 
             let mut strings = HashMap::new();
             for (index, name) in str_tbl.iter().enumerate() {
@@ -268,26 +291,45 @@ mod protobuf {
                         locs.push(function_id);
                     }
                 }
+                let thread_name = protos::Label {
+                    key: *strings.get(THREAD).unwrap() as i64,
+                    str: *strings.get(&key.thread_name_or_id().as_str()).unwrap() as i64,
+                    ..protos::Label::default()
+                };
                 let sample = protos::Sample {
                     location_id: locs,
-                    value: vec![*count as i64],
+                    value: vec![
+                        *count as i64,
+                        *count as i64 * 1_000_000_000 / self.timing.frequency as i64,
+                    ],
+                    label: vec![thread_name],
                     ..protos::Sample::default()
                 };
                 samples.push(sample);
             }
-            let (type_idx, unit_idx) = (str_tbl.len(), str_tbl.len() + 1);
-            str_tbl.push("cpu".to_owned());
-            str_tbl.push("count".to_owned());
-            let sample_type = protos::ValueType {
-                r#type: type_idx as i64,
-                unit: unit_idx as i64,
+            let samples_value = protos::ValueType {
+                r#type: *strings.get(SAMPLES).unwrap() as i64,
+                unit: *strings.get(COUNT).unwrap() as i64,
+            };
+            let time_value = protos::ValueType {
+                r#type: *strings.get(CPU).unwrap() as i64,
+                unit: *strings.get(NANOSECONDS).unwrap() as i64,
             };
             let profile = protos::Profile {
-                sample_type: vec![sample_type],
+                sample_type: vec![samples_value, time_value.clone()],
                 sample: samples,
                 string_table: str_tbl,
                 function: fn_tbl,
                 location: loc_tbl,
+                time_nanos: self
+                    .timing
+                    .start_time
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos() as i64,
+                duration_nanos: self.timing.duration.as_nanos() as i64,
+                period_type: Some(time_value),
+                period: 1_000_000_000 / self.timing.frequency as i64,
                 ..protos::Profile::default()
             };
             Ok(profile)
