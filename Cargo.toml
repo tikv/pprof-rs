@@ -2,7 +2,7 @@
 name = "pprof"
 version = "0.6.1"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"

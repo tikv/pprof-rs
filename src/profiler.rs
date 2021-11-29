@@ -421,8 +421,8 @@ mod tests {
             }
         }
         let mut prime_numbers = vec![];
-        for i in 2..10000 {
-            if prime_number_table[i] {
+        for (i, item) in prime_number_table.iter().enumerate().skip(2) {
+            if *item {
                 prime_numbers.push(i);
             }
         }
@@ -452,7 +452,7 @@ mod tests {
         }
 
         FLAG.with(|flag| {
-            assert_eq!(*flag.borrow(), false);
+            assert!(!*flag.borrow());
         });
     }
 }
