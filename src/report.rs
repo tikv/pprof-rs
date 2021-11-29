@@ -303,7 +303,6 @@ mod protobuf {
                         *count as i64 * 1_000_000_000 / self.timing.frequency as i64,
                     ],
                     label: vec![thread_name],
-                    ..protos::Sample::default()
                 };
                 samples.push(sample);
             }
