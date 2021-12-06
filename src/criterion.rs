@@ -15,6 +15,7 @@ use std::marker::PhantomData;
 use std::os::raw::c_int;
 use std::path::Path;
 
+#[allow(clippy::large_enum_variant)]
 pub enum Output<'a> {
     #[cfg(feature = "flamegraph")]
     Flamegraph(Option<FlamegraphOptions<'a>>),
