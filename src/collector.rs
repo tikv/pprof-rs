@@ -316,7 +316,7 @@ mod tests {
         }
 
         stack_hash_counter.iter().for_each(|entry| {
-            test_utils::add_map(&mut real_map, &entry);
+            test_utils::add_map(&mut real_map, entry);
         });
 
         for item in 0..(1 << 10) * 4 {
@@ -344,7 +344,7 @@ mod tests {
         }
 
         collector.try_iter().unwrap().for_each(|entry| {
-            test_utils::add_map(&mut real_map, &entry);
+            test_utils::add_map(&mut real_map, entry);
         });
 
         for item in 0..(1 << 12) * 4 {
@@ -416,11 +416,11 @@ mod malloc_free_test {
         }
 
         FLAG.with(|flag| {
-            assert_eq!(*flag.borrow(), false);
+            assert!(!*flag.borrow());
         });
 
         collector.try_iter().unwrap().for_each(|entry| {
-            test_utils::add_map(&mut real_map, &entry);
+            test_utils::add_map(&mut real_map, entry);
         });
 
         for item in 0..(1 << 10) * 4 {
