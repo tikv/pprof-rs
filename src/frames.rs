@@ -3,25 +3,18 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::path::PathBuf;
 
 use backtrace::Frame;
+use smallvec::SmallVec;
 use symbolic_demangle::demangle;
 
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
-#[derive(Debug, Clone)]
-pub struct UnresolvedFramesSlice<'a> {
-    pub frames: &'a [Frame],
-    pub thread_name: &'a [u8],
-    pub thread_id: u64,
-}
-
+#[derive(Clone)]
 pub struct UnresolvedFrames {
-    pub frames: [MaybeUninit<Frame>; MAX_DEPTH],
-    pub depth: usize,
+    pub frames: SmallVec<[Frame; MAX_DEPTH]>,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
     pub thread_id: u64,
@@ -29,10 +22,9 @@ pub struct UnresolvedFrames {
 
 impl Default for UnresolvedFrames {
     fn default() -> Self {
-        let frames = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+        let frames = SmallVec::with_capacity(MAX_DEPTH);
         Self {
             frames,
-            depth: 0,
             thread_name: [0; MAX_THREAD_NAME],
             thread_name_length: 0,
             thread_id: 0,
@@ -40,55 +32,30 @@ impl Default for UnresolvedFrames {
     }
 }
 
-impl Clone for UnresolvedFrames {
-    fn clone(&self) -> Self {
-        let slice = self.inited_slice().clone();
-        Self::new(slice.frames, slice.thread_name, slice.thread_id)
-    }
-}
-
 impl Debug for UnresolvedFrames {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        self.inited_slice().fmt(f)
+        self.frames.fmt(f)
     }
 }
 
 impl UnresolvedFrames {
-    pub fn new(bt: &[Frame], tn: &[u8], thread_id: u64) -> Self {
-        let depth = bt.len();
-        let mut frames: [MaybeUninit<Frame>; MAX_DEPTH] =
-            unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-        for (index, elem) in frames[..depth].iter_mut().enumerate() {
-            elem.write(bt[index].clone());
-        }
-
+    pub fn new(frames: SmallVec<[Frame; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
         thread_name[0..thread_name_length].clone_from_slice(tn);
 
         Self {
             frames,
-            depth,
             thread_name,
             thread_name_length,
             thread_id,
-        }
-    }
-
-    fn inited_slice(&self) -> UnresolvedFramesSlice {
-        UnresolvedFramesSlice {
-            frames: unsafe {
-                &*(&self.frames[..self.depth] as *const [MaybeUninit<Frame>] as *const [Frame])
-            },
-            thread_name: &self.thread_name[0..self.thread_name_length],
-            thread_id: self.thread_id,
         }
     }
 }
 
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
-        let (frames1, frames2) = (self.inited_slice().frames, other.inited_slice().frames);
+        let (frames1, frames2) = (&self.frames, &other.frames);
         if self.thread_id != other.thread_id || frames1.len() != frames2.len() {
             false
         } else {
@@ -103,8 +70,7 @@ impl Eq for UnresolvedFrames {}
 
 impl Hash for UnresolvedFrames {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.inited_slice()
-            .frames
+        self.frames
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
@@ -197,7 +163,7 @@ impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
         let mut fs = Vec::new();
 
-        let mut frame_iter = frames.inited_slice().frames.iter();
+        let mut frame_iter = frames.frames.iter();
 
         while let Some(frame) = frame_iter.next() {
             let mut symbols = Vec::new();

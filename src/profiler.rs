@@ -1,12 +1,12 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::convert::TryInto;
-use std::mem::MaybeUninit;
 use std::os::raw::c_int;
 
 use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
+use smallvec::SmallVec;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
@@ -240,13 +240,13 @@ extern "C" fn perf_signal_handler(
                 }
             }
 
-            let mut bt: [MaybeUninit<Frame>; 1000] = unsafe { MaybeUninit::uninit().assume_init() };
+            let mut bt: SmallVec<[Frame; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
 
             unsafe {
                 backtrace::trace_unsynchronized(|frame| {
                     if index < MAX_DEPTH {
-                        bt[index].write(frame.clone());
+                        bt.push(frame.clone());
                         index += 1;
                         true
                     } else {
@@ -255,9 +255,6 @@ extern "C" fn perf_signal_handler(
                 });
             }
 
-            let bt: &[Frame] =
-                unsafe { &*(&bt[..index] as *const [MaybeUninit<Frame>] as *const [Frame]) };
-
             let current_thread = unsafe { libc::pthread_self() };
             let mut name = [0; MAX_THREAD_NAME];
             let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
@@ -265,7 +262,7 @@ extern "C" fn perf_signal_handler(
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
+            profiler.sample(bt, name.to_bytes(), current_thread as u64);
         }
     }
 }
@@ -346,7 +343,12 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame], thread_name: &[u8], thread_id: u64) {
+    pub fn sample(
+        &mut self,
+        backtrace: SmallVec<[Frame; MAX_DEPTH]>,
+        thread_name: &[u8],
+        thread_id: u64,
+    ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 

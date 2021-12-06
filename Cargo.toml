@@ -26,6 +26,7 @@ tempfile = "3.1"
 thiserror = "1.0"
 findshlibs = "0.10"
 cfg-if = "1.0"
+smallvec = "1.7"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.9", optional = true }
