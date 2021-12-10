@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
-use std::time::SystemTime;
 
 use parking_lot::RwLock;
 
@@ -215,6 +214,7 @@ mod protobuf {
     use super::*;
     use crate::protos;
     use std::collections::HashSet;
+    use std::time::SystemTime;
 
     const SAMPLES: &str = "samples";
     const COUNT: &str = "count";
