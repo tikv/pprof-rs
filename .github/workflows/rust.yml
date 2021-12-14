@@ -59,9 +59,9 @@ jobs:
       - name: Install Cross Build openssl
         if: ${{ contains(matrix.target, 'aarch64') }}
         run: |
-          dpkg --add-architecture arm64
-          apt-get update
-          apt-get install --assume-yes libssl-dev libssl-dev:arm64
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install --assume-yes libssl-dev libssl-dev:arm64
 
       - name: Run cargo build
         if: ${{ contains(matrix.target, 'aarch64') }}
