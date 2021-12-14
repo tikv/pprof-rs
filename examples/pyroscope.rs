@@ -14,14 +14,14 @@ fn fibonacci(n: u64) -> u64 {
 async fn main() {
     let guard = pprof::pyroscope::PyroscopeAgent::new(
         "http://localhost:4040".to_owned(),
-        std::time::Duration::from_secs(10),
         99,
         "fibonacci".to_owned(),
+        Some([("TagA".to_owned(), "ValueA".to_owned()), ("TagB".to_owned(), "ValueB".to_owned())].iter().cloned().collect()),
     )
     .await;
 
     for s in &[1, 10, 40, 50] {
-        let result = fibonacci(cirterion::black_box(*s));
+        let result = fibonacci(criterion::black_box(*s));
         println!("fibonacci({}) -> {}", *s, result);
     }
 
