@@ -62,14 +62,14 @@ jobs:
         # don't compile tls with tls support
         run: |
           cargo install cross
-          cross build --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope
+          cross build --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope,rustls-tls
       
       - name: Run cargo build
         uses: actions-rs/cargo@v1.0.3
         if: ${{ !contains(matrix.target, 'aarch64') }}
         with:
           command: build
-          args: --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope
+          args: --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope,default-tls
 
   test:
     name: Test

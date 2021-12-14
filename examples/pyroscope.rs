@@ -1,6 +1,4 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
-#![feature(bench_black_box)]
-
 use pprof::pyroscope::PyroscopeAgentBuilder;
 
 fn fibonacci(n: u64) -> u64 {
