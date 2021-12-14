@@ -144,8 +144,7 @@ impl ProfilerGuard<'_> {
         ReportBuilder::new(
             self.profiler,
             self.sample_rate,
-            self.start,
-            std::time::SystemTime::now(),
+            self.timer.as_ref().map(Timer::timing).unwrap_or_default(),
         )
     }
 }
