@@ -15,11 +15,14 @@ pub struct PyroscopeAgent {
 impl PyroscopeAgent {
     pub async fn new(
         url: String,
-        upload_interval: std::time::Duration,
         frequency: libc::c_int,
         application_name: String,
     ) -> Self {
         let (stopper, mut stop_signal) = mpsc::channel::<()>(1);
+
+        // Since Pyroscope only allow 10s intervals, it might not be necessary
+        // to make this customizable at this point
+        let upload_interval = std::time::Duration::from_secs(10);
         let mut interval = tokio::time::interval(upload_interval);
 
         let handler = tokio::spawn(async move {
