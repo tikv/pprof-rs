@@ -75,7 +75,7 @@ fn merge_tags_with_app_name(
 
                 format!("{{{}}}", tags.join(","))
             })
-            .unwrap_or("".to_string())
+            .unwrap_or_default()
     )
 }
 
