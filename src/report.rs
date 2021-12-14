@@ -39,6 +39,7 @@ pub struct ReportBuilder<'a> {
     timing: ReportTiming,
 }
 
+#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for ReportBuilder<'_> {}
 unsafe impl Sync for ReportBuilder<'_> {}
 unsafe impl Send for Report {}
