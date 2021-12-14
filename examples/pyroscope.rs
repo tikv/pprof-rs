@@ -16,7 +16,15 @@ async fn main() {
         "http://localhost:4040".to_owned(),
         99,
         "fibonacci".to_owned(),
-        Some([("TagA".to_owned(), "ValueA".to_owned()), ("TagB".to_owned(), "ValueB".to_owned())].iter().cloned().collect()),
+        Some(
+            [
+                ("TagA".to_owned(), "ValueA".to_owned()),
+                ("TagB".to_owned(), "ValueB".to_owned()),
+            ]
+            .iter()
+            .cloned()
+            .collect(),
+        ),
     )
     .await;
 

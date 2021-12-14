@@ -220,7 +220,11 @@ mod pyroscope {
             let client = reqwest::Client::new();
             // TODO: handle the error of this request
 
-            let start: u64 = self.start.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+            let start: u64 = self
+                .start
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             let s_start = start - start.checked_rem(10).unwrap();
             // This assumes that the interval between start and until doesn't
             // exceed 10s
@@ -232,20 +236,8 @@ mod pyroscope {
                 .header("Content-Type", "application/json")
                 .query(&[
                     ("name", application_name.as_ref()),
-                    (
-                        "from",
-                        &format!(
-                            "{}",
-                           s_start
-                        ),
-                    ),
-                    (
-                        "until",
-                        &format!(
-                            "{}",
-                           s_until
-                        ),
-                    ),
+                    ("from", &format!("{}", s_start)),
+                    ("until", &format!("{}", s_until)),
                     ("format", "folded"),
                     ("sampleRate", &format!("{}", self.sample_rate)),
                     ("spyName", "pprof-rs"),
