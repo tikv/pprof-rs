@@ -15,10 +15,8 @@ flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
 cpp = ["symbolic-demangle/cpp"]
 
-pyroscope = ["reqwest", "reqwest/default-tls"]
-pyroscope-tokio = ["tokio"]
-
-tls-vendored = ["reqwest/native-tls-vendored"]
+pyroscope = ["reqwest", "tokio"]
+tls = ["reqwest/default-tls"]
 
 [dependencies]
 backtrace = "0.3"

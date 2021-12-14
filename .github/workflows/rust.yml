@@ -58,14 +58,15 @@ jobs:
 
       - name: Run cargo build
         if: ${{ contains(matrix.target, 'aarch64') }}
-        run: cross build --target ${{ matrix.target }} --all-features
+        # don't compile tls with tls support
+        run: cross build --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope
       
       - name: Run cargo build
         uses: actions-rs/cargo@v1.0.3
         if: ${{ !contains(matrix.target, 'aarch64') }}
         with:
           command: build
-          args: --all-features --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --features default,flamegraph,protobuf,cpp,pyroscope
 
   test:
     name: Test
