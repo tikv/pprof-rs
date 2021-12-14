@@ -1,8 +1,8 @@
 [package]
 name = "pprof"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"
@@ -27,6 +27,9 @@ nix = "0.23"
 parking_lot = "0.11"
 tempfile = "3.1"
 thiserror = "1.0"
+findshlibs = "0.10"
+cfg-if = "1.0"
+smallvec = "1.7"
 
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.9", optional = true }

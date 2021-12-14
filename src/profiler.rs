@@ -6,6 +6,10 @@ use std::os::raw::c_int;
 use backtrace::Frame;
 use nix::sys::signal;
 use parking_lot::RwLock;
+use smallvec::SmallVec;
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::collector::Collector;
 use crate::error::{Error, Result};
@@ -23,6 +27,95 @@ pub struct Profiler {
     sample_counter: i32,
 
     running: bool,
+
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    blocklist_segments: Vec<(usize, usize)>,
+}
+
+pub struct ProfilerGuardBuilder {
+    frequency: c_int,
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    blocklist_segments: Vec<(usize, usize)>,
+}
+
+impl Default for ProfilerGuardBuilder {
+    fn default() -> ProfilerGuardBuilder {
+        ProfilerGuardBuilder {
+            frequency: 99,
+
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            blocklist_segments: Vec::new(),
+        }
+    }
+}
+
+impl ProfilerGuardBuilder {
+    pub fn frequency(self, frequency: c_int) -> Self {
+        Self { frequency, ..self }
+    }
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    pub fn blocklist<T: AsRef<str>>(self, blocklist: &[T]) -> Self {
+        let blocklist_segments = {
+            let mut segments = Vec::new();
+            TargetSharedLibrary::each(|shlib| {
+                let in_blocklist = match shlib.name().to_str() {
+                    Some(name) => {
+                        let mut in_blocklist = false;
+                        for blocked_name in blocklist.iter() {
+                            if name.contains(blocked_name.as_ref()) {
+                                in_blocklist = true;
+                            }
+                        }
+
+                        in_blocklist
+                    }
+
+                    None => false,
+                };
+                if in_blocklist {
+                    for seg in shlib.segments() {
+                        let avam = seg.actual_virtual_memory_address(shlib);
+                        let start = avam.0;
+                        let end = start + seg.len();
+                        segments.push((start, end));
+                    }
+                }
+            });
+            segments
+        };
+
+        Self {
+            blocklist_segments,
+            ..self
+        }
+    }
+    pub fn build(self) -> Result<ProfilerGuard<'static>> {
+        trigger_lazy();
+
+        match PROFILER.write().as_mut() {
+            Err(err) => {
+                log::error!("Error in creating profiler: {}", err);
+                Err(Error::CreatingError)
+            }
+            Ok(profiler) => {
+                #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+                {
+                    profiler.blocklist_segments = self.blocklist_segments;
+                }
+
+                match profiler.start() {
+                    Ok(()) => Ok(ProfilerGuard::<'static> {
+                        profiler: &PROFILER,
+                        timer: Some(Timer::new(self.frequency)),
+
+                        sample_rate: self.frequency,
+                        start: std::time::SystemTime::now(),
+                    }),
+                    Err(err) => Err(err),
+                }
+            }
+        }
+    }
 }
 
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
@@ -42,24 +135,7 @@ fn trigger_lazy() {
 impl ProfilerGuard<'_> {
     /// Start profiling with given sample frequency.
     pub fn new(frequency: c_int) -> Result<ProfilerGuard<'static>> {
-        trigger_lazy();
-
-        match PROFILER.write().as_mut() {
-            Err(err) => {
-                log::error!("Error in creating profiler: {}", err);
-                Err(Error::CreatingError)
-            }
-            Ok(profiler) => match profiler.start() {
-                Ok(()) => Ok(ProfilerGuard::<'static> {
-                    profiler: &PROFILER,
-                    timer: Some(Timer::new(frequency)),
-
-                    sample_rate: frequency,
-                    start: std::time::SystemTime::now(),
-                }),
-                Err(err) => Err(err),
-            },
-        }
+        ProfilerGuardBuilder::default().frequency(frequency).build()
     }
 
     /// Generate a report
@@ -128,18 +204,60 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
 }
 
 #[no_mangle]
-#[allow(clippy::uninit_assumed_init)]
-extern "C" fn perf_signal_handler(_signal: c_int) {
+#[cfg_attr(
+    not(all(any(target_arch = "x86_64", target_arch = "aarch64"))),
+    allow(unused_variables)
+)]
+extern "C" fn perf_signal_handler(
+    _signal: c_int,
+    _siginfo: *mut libc::siginfo_t,
+    ucontext: *mut libc::c_void,
+) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            let mut bt: [Frame; MAX_DEPTH] =
-                unsafe { std::mem::MaybeUninit::uninit().assume_init() };
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            if !ucontext.is_null() {
+                let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+
+                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+                let addr =
+                    unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
+
+                #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+                let addr = unsafe {
+                    let mcontext = (*ucontext).uc_mcontext;
+                    if mcontext.is_null() {
+                        0
+                    } else {
+                        (*mcontext).__ss.__rip as usize
+                    }
+                };
+
+                #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+                let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
+
+                #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+                let addr = unsafe {
+                    let mcontext = (*ucontext).uc_mcontext;
+                    if mcontext.is_null() {
+                        0
+                    } else {
+                        (*mcontext).__ss.__pc as usize
+                    }
+                };
+
+                if profiler.is_blocklisted(addr) {
+                    return;
+                }
+            }
+
+            let mut bt: SmallVec<[Frame; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
 
             unsafe {
                 backtrace::trace_unsynchronized(|frame| {
                     if index < MAX_DEPTH {
-                        bt[index] = frame.clone();
+                        bt.push(frame.clone());
                         index += 1;
                         true
                     } else {
@@ -155,7 +273,7 @@ extern "C" fn perf_signal_handler(_signal: c_int) {
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(&bt[0..index], name.to_bytes(), current_thread as u64);
+            profiler.sample(bt, name.to_bytes(), current_thread as u64);
         }
     }
 }
@@ -166,7 +284,20 @@ impl Profiler {
             data: Collector::new()?,
             sample_counter: 0,
             running: false,
+
+            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            blocklist_segments: Vec::new(),
         })
+    }
+
+    #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    fn is_blocklisted(&self, addr: usize) -> bool {
+        for libs in &self.blocklist_segments {
+            if addr > libs.0 && addr < libs.1 {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -204,8 +335,13 @@ impl Profiler {
     }
 
     fn register_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::Handler(perf_signal_handler);
-        unsafe { signal::signal(signal::SIGPROF, handler) }?;
+        let handler = signal::SigHandler::SigAction(perf_signal_handler);
+        let sigaction = signal::SigAction::new(
+            handler,
+            signal::SaFlags::SA_SIGINFO,
+            signal::SigSet::empty(),
+        );
+        unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
 
         Ok(())
     }
@@ -218,7 +354,12 @@ impl Profiler {
     }
 
     // This function has to be AS-safe
-    pub fn sample(&mut self, backtrace: &[Frame], thread_name: &[u8], thread_id: u64) {
+    pub fn sample(
+        &mut self,
+        backtrace: SmallVec<[Frame; MAX_DEPTH]>,
+        thread_name: &[u8],
+        thread_id: u64,
+    ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
         self.sample_counter += 1;
 
@@ -227,17 +368,16 @@ impl Profiler {
 }
 
 #[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
+
     use std::cell::RefCell;
     use std::ffi::c_void;
 
-    #[cfg(not(target_os = "linux"))]
-    #[allow(clippy::wrong_self_convention)]
-    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+    use std::ptr::null_mut;
 
     extern "C" {
-        #[cfg(target_os = "linux")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;
@@ -296,14 +436,15 @@ mod tests {
             }
         }
         let mut prime_numbers = vec![];
-        for i in 2..10000 {
-            if prime_number_table[i] {
+        for (i, item) in prime_number_table.iter().enumerate().skip(2) {
+            if *item {
                 prime_numbers.push(i);
             }
         }
         prime_numbers
     }
 
+    #[cfg(target_os = "linux")]
     #[test]
     fn malloc_free() {
         trigger_lazy();
@@ -318,7 +459,7 @@ mod tests {
         for i in 2..50000 {
             if is_prime_number(i, &prime_numbers) {
                 _v += 1;
-                perf_signal_handler(27);
+                perf_signal_handler(27, null_mut(), null_mut());
             }
         }
         unsafe {
@@ -326,7 +467,7 @@ mod tests {
         }
 
         FLAG.with(|flag| {
-            assert_eq!(*flag.borrow(), false);
+            assert!(!*flag.borrow());
         });
     }
 }
