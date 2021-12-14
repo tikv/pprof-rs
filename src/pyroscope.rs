@@ -6,7 +6,7 @@
 //! "default-tls" (or "rustls-tls"). To start profiling, you can create a
 //! `PyroscopeAgent`:
 //!
-//! ```rust
+//! ```ignore
 //! let guard =  
 //!   PyroscopeAgentBuilder::new("http://localhost:4040".to_owned(), "fibonacci".to_owned())
 //!     .frequency(99)
@@ -23,13 +23,13 @@
 //! This guard will collect profiling data and send profiling data to the
 //! pyroscope server every 10 seconds. This interval is not configurable now
 //! (both server side and client side).
-//! 
+//!
 //! If you need to stop the profiling, you can call `stop()` on the guard:
-//! 
-//! ```rust
+//!
+//! ```ignore
 //! guard.stop().await
 //! ```
-//! 
+//!
 //! It will return the error if error occurs while profiling.
 
 use std::collections::HashMap;
