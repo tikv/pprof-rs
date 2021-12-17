@@ -65,12 +65,11 @@ jobs:
           override: true
 
       - name: Run cargo build
-        uses: actions-rs/cargo@v1.0.3
         if: ${{ matrix.arch == 'aarch64' }}
         # don't compile tls with tls support
-        with:
-          command: build
-          args: --target ${{ steps.generate-target.outputs.triple }} --features default,flamegraph,protobuf,cpp,pyroscope,rustls-tls
+        run: |
+          cargo install cross
+          cross build --target ${{ steps.generate-target.outputs.triple }} --features default,flamegraph,protobuf,cpp,pyroscope,rustls-tls
       
       - name: Run cargo build
         uses: actions-rs/cargo@v1.0.3
