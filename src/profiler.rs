@@ -110,7 +110,6 @@ impl ProfilerGuardBuilder {
                         timer: Some(Timer::new(self.frequency)),
 
                         sample_rate: self.frequency,
-                        start: std::time::SystemTime::now(),
                     }),
                     Err(err) => Err(err),
                 }
@@ -125,12 +124,11 @@ pub struct ProfilerGuard<'a> {
     timer: Option<Timer>,
 
     sample_rate: c_int,
-    start: std::time::SystemTime,
 }
 
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
-    let _ = PROFILER.read();
+    drop(PROFILER.read());
 }
 
 impl ProfilerGuard<'_> {
@@ -144,8 +142,7 @@ impl ProfilerGuard<'_> {
         ReportBuilder::new(
             self.profiler,
             self.sample_rate,
-            self.start,
-            std::time::SystemTime::now(),
+            self.timer.as_ref().map(Timer::timing).unwrap_or_default(),
         )
     }
 }
