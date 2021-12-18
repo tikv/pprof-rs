@@ -4,7 +4,8 @@
 pub enum Error {
     #[error("{0}")]
     ReqwestError(#[from] reqwest::Error),
-
+    #[error("{0}")]
+    IoError(#[from] std::io::Error),
     #[error("{0}")]
     PProfError(#[from] pprof::Error),
 }

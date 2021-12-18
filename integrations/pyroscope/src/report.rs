@@ -2,6 +2,41 @@
 
 use crate::Result;
 
+fn fold<W>(report: &pprof::Report, with_thread_name: bool, mut writer: W) -> Result<()>
+where
+    W: std::io::Write,
+{
+    for (key, value) in report.data.iter() {
+        if with_thread_name {
+            if !key.thread_name.is_empty() {
+                write!(writer, "{};", key.thread_name)?;
+            } else {
+                write!(writer, "{:?};", key.thread_id)?;
+            }
+        }
+
+        let last_frame = key.frames.len() - 1;
+        for (index, frame) in key.frames.iter().rev().enumerate() {
+            let last_symbol = frame.len() - 1;
+            for (index, symbol) in frame.iter().rev().enumerate() {
+                if index == last_symbol {
+                    write!(writer, "{}", symbol)?;
+                } else {
+                    write!(writer, "{};", symbol)?;
+                }
+            }
+
+            if index != last_frame {
+                write!(writer, ";")?;
+            }
+        }
+
+        writeln!(writer, " {}", value)?;
+    }
+
+    Ok(())
+}
+
 pub async fn pyroscope_ingest<S: AsRef<str>, N: AsRef<str>>(
     report: &mut pprof::Report,
     url: S,
@@ -9,7 +44,7 @@ pub async fn pyroscope_ingest<S: AsRef<str>, N: AsRef<str>>(
 ) -> Result<()> {
     let mut buffer = Vec::new();
 
-    report.fold(true, &mut buffer)?;
+    fold(report, true, &mut buffer)?;
 
     let client = reqwest::Client::new();
     // TODO: handle the error of this request
