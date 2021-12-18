@@ -32,16 +32,13 @@ pub struct UnresolvedReport {
 
 /// A builder of `Report` and `UnresolvedReport`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
-    frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
+    frames_post_processor: Option<Box<dyn Fn(&mut Frames) + Send>>,
     profiler: &'a RwLock<Result<Profiler>>,
 
     sample_rate: libc::c_int,
     timing: ReportTiming,
 }
 
-#[allow(clippy::non_send_fields_in_send_ty)]
-unsafe impl Send for ReportBuilder<'_> {}
-unsafe impl Sync for ReportBuilder<'_> {}
 unsafe impl Send for Report {}
 unsafe impl Sync for Report {}
 
@@ -63,7 +60,7 @@ impl<'a> ReportBuilder<'a> {
     /// will be applied to every Frames.
     pub fn frames_post_processor<T>(&mut self, frames_post_processor: T) -> &mut Self
     where
-        T: Fn(&mut Frames) + 'static,
+        T: Fn(&mut Frames) + Send + 'static,
     {
         self.frames_post_processor
             .replace(Box::new(frames_post_processor));
