@@ -15,10 +15,6 @@ flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
 cpp = ["symbolic-demangle/cpp"]
 
-pyroscope = ["reqwest", "tokio"]
-default-tls = ["reqwest/default-tls"]
-rustls-tls = ["reqwest/rustls-tls"]
-
 [dependencies]
 backtrace = "0.3"
 lazy_static = "1.4"
@@ -36,8 +32,6 @@ inferno = { version = "0.10", default-features = false, features = ["nameattr"],
 prost = { version = "0.9", optional = true }
 prost-derive = { version = "0.9", optional = true }
 criterion = {version = "0.3", optional = true}
-reqwest = {version = "0.11", optional = true, default-features = false}
-tokio = {version = "1.13", optional = true, features = ["macros", "sync", "rt-multi-thread"]}
 
 [dependencies.symbolic-demangle]
 version = "8.0"
@@ -67,10 +61,6 @@ required-features = ["flamegraph"]
 name = "criterion"
 required-features = ["flamegraph", "criterion"]
 
-[[example]]
-name = "pyroscope"
-required-features = ["pyroscope", "criterion", "flamegraph"]
-
 [[bench]]
 name = "collector"
 path = "benches/collector.rs"
@@ -78,3 +68,6 @@ harness = false
 
 [package.metadata.docs.rs]
 all-features = true
+
+[workspace]
+members = ["integrations/pyroscope"]

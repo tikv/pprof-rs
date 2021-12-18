@@ -69,6 +69,3 @@ pub mod protos {
 
 #[cfg(feature = "criterion")]
 pub mod criterion;
-
-#[cfg(feature = "pyroscope")]
-pub mod pyroscope;

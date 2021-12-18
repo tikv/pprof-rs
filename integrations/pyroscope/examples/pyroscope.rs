@@ -1,5 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
-use pprof::pyroscope::PyroscopeAgentBuilder;
+use pprof_pyroscope::PyroscopeAgentBuilder;
 
 fn fibonacci(n: u64) -> u64 {
     match n {

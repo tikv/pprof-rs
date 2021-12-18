@@ -1,9 +1,8 @@
 // Copyright 2021 TiKV Project Authors. Licensed under Apache-2.0.
 
-//! this mod could help you to upload profiler data to the pyroscope
+//! this crate could help you to upload profiler data to the pyroscope
 //!
-//! To enable this mod, you need to enable the features: "pyroscope" and
-//! "default-tls" (or "rustls-tls"). To start profiling, you can create a
+//! To start profiling, you can create a
 //! `PyroscopeAgent`:
 //!
 //! ```ignore
@@ -34,12 +33,16 @@
 
 use std::collections::HashMap;
 
-use crate::ProfilerGuardBuilder;
-use crate::Result;
+use pprof::ProfilerGuardBuilder;
 
 use tokio::sync::mpsc;
 
 use libc::c_int;
+
+mod error;
+mod report;
+
+pub use error::Result;
 
 pub struct PyroscopeAgentBuilder {
     inner_builder: ProfilerGuardBuilder,
@@ -92,10 +95,12 @@ impl PyroscopeAgentBuilder {
                     Ok(guard) => {
                         tokio::select! {
                             _ = interval.tick() => {
-                                guard.report().build()?.pyroscope_ingest(&self.url, &application_name).await?;
+                                let mut report = guard.report().build()?;
+                                report::pyroscope_ingest(&mut report, &self.url, &application_name).await?;
                             }
                             _ = stop_signal.recv() => {
-                                guard.report().build()?.pyroscope_ingest(&self.url, &application_name).await?;
+                                let mut report = guard.report().build()?;
+                                report::pyroscope_ingest(&mut report, &self.url, &application_name).await?;
 
                                 break Ok(())
                             }
@@ -104,7 +109,7 @@ impl PyroscopeAgentBuilder {
                     Err(err) => {
                         // TODO: this error will only be caught when this
                         // handler is joined. Find way to report error earlier
-                        break Err(err);
+                        break Err(err.into());
                     }
                 }
             }
@@ -150,7 +155,7 @@ fn merge_tags_with_app_name(application_name: String, tags: HashMap<String, Stri
 mod tests {
     use std::collections::HashMap;
 
-    use crate::pyroscope::merge_tags_with_app_name;
+    use crate::merge_tags_with_app_name;
 
     #[test]
     fn merge_tags_with_app_name_with_tags() {

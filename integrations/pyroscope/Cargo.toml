@@ -1,0 +1,21 @@
+[package]
+name = "pprof-pyroscope"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+reqwest-default-tls = ["reqwest/default-tls"]
+reqwest-rustls-tls = ["reqwest/rustls-tls"]
+
+[dependencies]
+reqwest = {version = "0.11", default-features = false}
+tokio = {version = "1.15", features = ["macros", "sync", "rt-multi-thread"]}
+pprof = {version ="0.6", path = "../../"}
+libc = "^0.2.66"
+thiserror = "1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[example]]
+name = "pyroscope"

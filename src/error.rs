@@ -7,10 +7,6 @@ pub enum Error {
     #[error("{0}")]
     IoError(#[from] std::io::Error),
 
-    #[cfg(feature = "pyroscope")]
-    #[error("{0}")]
-    ReqwestError(#[from] reqwest::Error),
-
     #[error("create profiler error")]
     CreatingError,
     #[error("start running cpu profiler error")]
