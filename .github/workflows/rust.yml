@@ -35,24 +35,12 @@ jobs:
     name: Build
     strategy:
       matrix:
-        toolchain: [stable, nightly]
         os: [ubuntu-latest, macos-latest]
-        arch: [aarch64, x86_64]
-        exclude:
-        - os: macos-latest
-          arch: aarch64
+        toolchain: [stable, nightly]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-apple-darwin, aarch64-apple-darwin]
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Generate Target Triple
-        id: generate-target
-        run: |
-          if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            echo '::set-output name=triple::${{ matrix.arch }}-apple-darwin'
-          else
-            echo '::set-output name=triple::${{ matrix.arch }}-unknown-linux-gnu'
-          fi
-
       - name: Checkout sources
         uses: actions/checkout@v2
 
@@ -61,22 +49,14 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
-          target: ${{ steps.generate-target.outputs.triple }}
+          target: ${{ matrix.target }}
           override: true
 
       - name: Run cargo build
-        if: ${{ matrix.arch == 'aarch64' }}
-        # don't compile tls with tls support
-        run: |
-          cargo install cross
-          cross build --target ${{ steps.generate-target.outputs.triple }} --features default,flamegraph,protobuf,cpp,pyroscope,rustls-tls
-      
-      - name: Run cargo build
         uses: actions-rs/cargo@v1.0.3
-        if: ${{ matrix.arch == 'x86_64' }}
         with:
           command: build
-          args: --target ${{ steps.generate-target.outputs.triple }} --features default,flamegraph,protobuf,cpp,pyroscope,default-tls
+          args: --all-features --target ${{ matrix.target }}
 
   test:
     name: Test
@@ -87,17 +67,6 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Install Dependency on Mac OS
-        if: ${{ matrix.os == 'macos-latest' }}
-        run: |
-          brew install openssl
-      
-      - name: Install Dependency on Ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
-
       - name: Checkout sources
         uses: actions/checkout@v2
 
