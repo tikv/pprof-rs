@@ -32,6 +32,7 @@ pub struct Profiler {
     blocklist_segments: Vec<(usize, usize)>,
 }
 
+#[derive(Clone)]
 pub struct ProfilerGuardBuilder {
     frequency: c_int,
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
