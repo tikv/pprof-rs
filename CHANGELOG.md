@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2021-12-24
+### Added
+- implement `Clone` for `ProfilerGuardBuilder` [@yangkeao](https://github.com/YangKeao)
+- Add thread names and timing information to protobuf reports [@free](https://github.com/free)
+
 ## [0.6.1] - 2021-11-01
 ### Added
 - `blocklist` to skip sampling in selected shared library [@yangkeao](https://github.com/YangKeao)
