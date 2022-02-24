@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## [Unreleased]
+### Added
+- Add `nongnu-libunwind` feature to dynamically link with the `nongnu-libunwind` [@yangkeao](https://github.com/YangKeao)
 
 ## [0.6.2] - 2021-12-24
 ### Added
