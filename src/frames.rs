@@ -184,7 +184,7 @@ impl From<UnresolvedFrames> for Frames {
 
             frame.resolve_symbol(|symbol| {
                 let symbol = Symbol::from(symbol);
-                symbols.push(symbol.into());
+                symbols.push(symbol);
             });
 
             if symbols
