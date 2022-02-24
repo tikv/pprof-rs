@@ -10,6 +10,9 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+      
+      - name: Install LLVM toolchain
+        run: sudo apt install llvm autotools-dev autoconf -y
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1.0.7
@@ -75,6 +78,9 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Run cargo build
         uses: actions-rs/cargo@v1.0.3
