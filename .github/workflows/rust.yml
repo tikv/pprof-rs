@@ -62,7 +62,7 @@ jobs:
           args: --features flamegraph,protobuf,cpp --target ${{ matrix.target }}
 
   build_nongnu_unwind:
-    name: Build
+    name: Build with nongnu-libunwind
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
