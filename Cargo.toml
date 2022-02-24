@@ -14,7 +14,7 @@ default = ["cpp"]
 flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
 cpp = ["symbolic-demangle/cpp"]
-nongnu-libunwind = ["libunwind-rs", "gimli"]
+nongnu-libunwind = ["libunwind-rs"]
 
 [dependencies]
 backtrace = "0.3"
@@ -34,7 +34,6 @@ prost = { version = "0.9", optional = true }
 prost-derive = { version = "0.9", optional = true }
 criterion = {version = "0.3", optional = true}
 libunwind-rs = { version = "0.3", optional = true }
-gimli = { version = "0.26", optional = true }
 
 [dependencies.symbolic-demangle]
 version = "8.0"
