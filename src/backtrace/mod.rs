@@ -33,14 +33,14 @@ pub trait Frame: Sized + Clone {
     fn symbol_address(&self) -> *mut c_void;
 }
 
-#[cfg(not(feature = "nongnu-unwind"))]
+#[cfg(not(feature = "nongnu-libunwind"))]
 mod backtrace_rs;
 
-#[cfg(not(feature = "nongnu-unwind"))]
+#[cfg(not(feature = "nongnu-libunwind"))]
 pub use backtrace_rs::{trace, Frame as FrameImpl, Symbol as SymbolImpl};
 
-#[cfg(feature = "nongnu-unwind")]
+#[cfg(feature = "nongnu-libunwind")]
 mod nongnu_unwind;
 
-#[cfg(feature = "nongnu-unwind")]
+#[cfg(feature = "nongnu-libunwind")]
 pub use nongnu_unwind::{trace, Frame as FrameImpl, Symbol as SymbolImpl};

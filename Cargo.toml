@@ -14,7 +14,7 @@ default = ["cpp"]
 flamegraph = ["inferno"]
 protobuf = ["prost", "prost-derive", "prost-build"]
 cpp = ["symbolic-demangle/cpp"]
-nongnu-unwind = ["libunwind-rs", "gimli"]
+nongnu-libunwind = ["libunwind-rs", "gimli"]
 
 [dependencies]
 backtrace = "0.3"

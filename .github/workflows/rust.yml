@@ -61,7 +61,7 @@ jobs:
           command: build
           args: --features flamegraph,protobuf,cpp --target ${{ matrix.target }}
 
-  build_nongnu_unwind:
+  build_nongnu_libunwind:
     name: Build with nongnu-libunwind
     runs-on: ubuntu-latest
     steps:
@@ -80,7 +80,7 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: build
-          args: --features nongnu-libunwind
+          args: --all-features
   
   test:
     name: Test
