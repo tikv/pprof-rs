@@ -35,7 +35,8 @@ pub fn trace<F: FnMut(&Frame) -> bool>(mut cb: F) {
                 ip: cursor.ip()?,
                 sp: cursor.sp()?,
                 symbol_address,
-            }) && cursor.step()? {
+            }) && cursor.step()?
+            {
                 continue;
             }
 
