@@ -235,6 +235,11 @@ Unit tests have been added to guarantee there is no `malloc` in sample functions
 
 1. Restore the original SIGPROF handler after stopping the profiler.
 
+## Minimum Supported Rust Version
+
+Rust 1.56 or higher.
+
+Minimum supported Rust version can be changed in the future, but it will be done with a minor version bump.
 
 ## License
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs?ref=badge_large)
