@@ -10,6 +10,9 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+      
+      - name: Install LLVM toolchain
+        run: sudo apt install llvm autotools-dev autoconf libunwind-dev -y
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1.0.7
@@ -56,8 +59,32 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: build
-          args: --all-features --target ${{ matrix.target }}
+          args: --features flamegraph,protobuf,cpp --target ${{ matrix.target }}
 
+  build_nongnu_libunwind:
+    name: Build with nongnu-libunwind
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      
+      - name: Install LLVM toolchain
+        run: sudo apt install llvm autotools-dev autoconf libunwind-dev -y
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1.0.7
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: build
+          args: --all-features
+  
   test:
     name: Test
     strategy:
@@ -81,4 +108,4 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: test
-          args: --all-features
+          args: --features flamegraph,protobuf,cpp 
