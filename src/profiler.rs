@@ -5,6 +5,7 @@ use std::os::raw::c_int;
 
 use backtrace::Frame;
 use nix::sys::signal;
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
 
@@ -18,9 +19,8 @@ use crate::report::ReportBuilder;
 use crate::timer::Timer;
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
-lazy_static::lazy_static! {
-    pub(crate) static ref PROFILER: RwLock<Result<Profiler>> = RwLock::new(Profiler::new());
-}
+pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
+    Lazy::new(|| RwLock::new(Profiler::new()));
 
 pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
@@ -124,7 +124,7 @@ pub struct ProfilerGuard<'a> {
 
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
-    let _ = PROFILER.read();
+    let _lock = PROFILER.read();
 }
 
 impl ProfilerGuard<'_> {
