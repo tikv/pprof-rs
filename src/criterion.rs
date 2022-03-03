@@ -93,8 +93,13 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
                     let profile = profiler.report().build().unwrap().pprof().unwrap();
 
                     let mut content = Vec::new();
+                    #[cfg(not(feature = "protobuf-codec"))]
                     profile
                         .encode(&mut content)
+                        .expect("Error while encoding protobuf");
+                    #[cfg(feature = "protobuf-codec")]
+                    profile
+                        .write_to_vec(&mut content)
                         .expect("Error while encoding protobuf");
 
                     output_file

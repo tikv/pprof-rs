@@ -60,7 +60,7 @@ pub use self::report::{Report, ReportBuilder};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
-#[cfg(feature = "prost-codec")]
+#[cfg(all(feature = "prost-codec", not(feature = "protobuf-codec")))]
 pub mod protos {
     pub use prost::Message;
 
