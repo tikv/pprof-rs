@@ -309,18 +309,12 @@ mod protobuf {
                 samples.push(sample);
             }
             let samples_value = protos::ValueType {
-                #[cfg(not(feature = "protobuf-codec"))]
-                r#type: *strings.get(SAMPLES).unwrap() as i64,
-                #[cfg(feature = "protobuf-codec")]
-                field_type: *strings.get(SAMPLES).unwrap() as i64,
+                ty: *strings.get(SAMPLES).unwrap() as i64,
                 unit: *strings.get(COUNT).unwrap() as i64,
                 ..Default::default()
             };
             let time_value = protos::ValueType {
-                #[cfg(not(feature = "protobuf-codec"))]
-                r#type: *strings.get(CPU).unwrap() as i64,
-                #[cfg(feature = "protobuf-codec")]
-                field_type: *strings.get(CPU).unwrap() as i64,
+                ty: *strings.get(CPU).unwrap() as i64,
                 unit: *strings.get(NANOSECONDS).unwrap() as i64,
                 ..Default::default()
             };

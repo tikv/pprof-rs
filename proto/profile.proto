@@ -93,7 +93,8 @@ message Profile {
 
 // ValueType describes the semantics and measurement units of a value.
 message ValueType {
-  int64 type = 1; // Index into string table.
+  // Rename it from type to ty to avoid using keyword in Rust.
+  int64 ty = 1; // Index into string table.
   int64 unit = 2; // Index into string table.
 }
 
