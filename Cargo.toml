@@ -12,7 +12,10 @@ readme = "README.md"
 [features]
 default = ["cpp"]
 flamegraph = ["inferno"]
-protobuf = ["prost", "prost-derive", "prost-build"]
+# A private feature to indicate either prost-codec or protobuf-codec is enabled.
+_protobuf = []
+prost-codec = ["prost", "prost-derive", "prost-build", "_protobuf"]
+protobuf-codec = ["protobuf", "protobuf-codegen-pure", "_protobuf"]
 cpp = ["symbolic-demangle/cpp"]
 
 [dependencies]
@@ -31,6 +34,7 @@ smallvec = "1.7"
 inferno = { version = "0.10", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.9", optional = true }
 prost-derive = { version = "0.9", optional = true }
+protobuf = { version = "2.0", optional = true, features = ["bytes"] }
 criterion = {version = "0.3", optional = true}
 
 [dependencies.symbolic-demangle]
@@ -44,6 +48,7 @@ rand = "0.8.0"
 
 [build-dependencies]
 prost-build = { version = "0.9", optional = true }
+protobuf-codegen-pure = { version = "2.0", optional = true }
 
 [[example]]
 name = "flamegraph"

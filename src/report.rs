@@ -209,7 +209,7 @@ mod flamegraph {
     }
 }
 
-#[cfg(feature = "protobuf")]
+#[cfg(feature = "_protobuf")]
 mod protobuf {
     use super::*;
     use crate::protos;
@@ -278,10 +278,11 @@ mod protobuf {
                         let line = protos::Line {
                             function_id,
                             line: lineno as i64,
+                            ..protos::Line::default()
                         };
                         let loc = protos::Location {
                             id: function_id,
-                            line: vec![line],
+                            line: vec![line].into(),
                             ..protos::Location::default()
                         };
                         // the fn_tbl has the same length with loc_tbl
@@ -302,24 +303,33 @@ mod protobuf {
                         *count as i64,
                         *count as i64 * 1_000_000_000 / self.timing.frequency as i64,
                     ],
-                    label: vec![thread_name],
+                    label: vec![thread_name].into(),
+                    ..Default::default()
                 };
                 samples.push(sample);
             }
             let samples_value = protos::ValueType {
+                #[cfg(feature = "prost-codec")]
                 r#type: *strings.get(SAMPLES).unwrap() as i64,
+                #[cfg(feature = "protobuf-codec")]
+                field_type: *strings.get(SAMPLES).unwrap() as i64,
                 unit: *strings.get(COUNT).unwrap() as i64,
+                ..Default::default()
             };
             let time_value = protos::ValueType {
+                #[cfg(feature = "prost-codec")]
                 r#type: *strings.get(CPU).unwrap() as i64,
+                #[cfg(feature = "protobuf-codec")]
+                field_type: *strings.get(CPU).unwrap() as i64,
                 unit: *strings.get(NANOSECONDS).unwrap() as i64,
+                ..Default::default()
             };
             let profile = protos::Profile {
-                sample_type: vec![samples_value, time_value.clone()],
-                sample: samples,
-                string_table: str_tbl,
-                function: fn_tbl,
-                location: loc_tbl,
+                sample_type: vec![samples_value, time_value.clone()].into(),
+                sample: samples.into(),
+                string_table: str_tbl.into(),
+                function: fn_tbl.into(),
+                location: loc_tbl.into(),
                 time_nanos: self
                     .timing
                     .start_time
@@ -327,7 +337,7 @@ mod protobuf {
                     .unwrap_or_default()
                     .as_nanos() as i64,
                 duration_nanos: self.timing.duration.as_nanos() as i64,
-                period_type: Some(time_value),
+                period_type: Some(time_value).into(),
                 period: 1_000_000_000 / self.timing.frequency as i64,
                 ..protos::Profile::default()
             };

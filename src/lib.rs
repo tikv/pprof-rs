@@ -60,11 +60,20 @@ pub use self::report::{Report, ReportBuilder};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
-#[cfg(feature = "protobuf")]
+#[cfg(feature = "prost-codec")]
 pub mod protos {
     pub use prost::Message;
 
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
+}
+
+#[cfg(feature = "protobuf-codec")]
+pub mod protos {
+    pub use protobuf::Message;
+
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+
+    pub use self::profile::*;
 }
 
 #[cfg(feature = "criterion")]
