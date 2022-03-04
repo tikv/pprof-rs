@@ -2,14 +2,14 @@
 
 #[cfg(feature = "flamegraph")]
 use crate::flamegraph::Options as FlamegraphOptions;
-#[cfg(feature = "protobuf")]
+#[cfg(feature = "_protobuf")]
 use crate::protos::Message;
 
 use crate::ProfilerGuard;
 use criterion::profiler::Profiler;
 
 use std::fs::File;
-#[cfg(feature = "protobuf")]
+#[cfg(feature = "_protobuf")]
 use std::io::Write;
 use std::marker::PhantomData;
 use std::os::raw::c_int;
@@ -20,7 +20,7 @@ pub enum Output<'a> {
     #[cfg(feature = "flamegraph")]
     Flamegraph(Option<FlamegraphOptions<'a>>),
 
-    #[cfg(feature = "protobuf")]
+    #[cfg(feature = "_protobuf")]
     Protobuf,
 
     #[deprecated(
@@ -45,7 +45,7 @@ impl<'a, 'b> PProfProfiler<'a, 'b> {
     }
 }
 
-#[cfg(not(any(feature = "protobuf", feature = "flamegraph")))]
+#[cfg(not(any(feature = "_protobuf", feature = "flamegraph")))]
 compile_error!("Either feature \"protobuf\" or \"flamegraph\" must be enabled when \"criterion\" feature is enabled.");
 
 impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
@@ -59,7 +59,7 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
         let filename = match self.output {
             #[cfg(feature = "flamegraph")]
             Output::Flamegraph(_) => "flamegraph.svg",
-            #[cfg(feature = "protobuf")]
+            #[cfg(feature = "_protobuf")]
             Output::Protobuf => "profile.pb",
             // This is `""` but not `unreachable!()`, because `unreachable!()`
             // will result in another compile error, so that the user may not
@@ -86,15 +86,20 @@ impl<'a, 'b> Profiler for PProfProfiler<'a, 'b> {
                         .expect("Error while writing flamegraph");
                 }
 
-                #[cfg(feature = "protobuf")]
+                #[cfg(feature = "_protobuf")]
                 Output::Protobuf => {
                     let mut output_file = output_file;
 
                     let profile = profiler.report().build().unwrap().pprof().unwrap();
 
                     let mut content = Vec::new();
+                    #[cfg(not(feature = "protobuf-codec"))]
                     profile
                         .encode(&mut content)
+                        .expect("Error while encoding protobuf");
+                    #[cfg(feature = "protobuf-codec")]
+                    profile
+                        .write_to_vec(&mut content)
                         .expect("Error while encoding protobuf");
 
                     output_file
