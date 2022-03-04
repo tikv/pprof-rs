@@ -25,11 +25,17 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Run cargo clippy
+      - name: Run cargo clippy prost
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
-          args: --all-features -- -D warnings
+          args: --features flamegraph,prost-codec -- -D warnings
+
+      - name: Run cargo clippy protobuf
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: clippy
+          args: --features flamegraph,protobuf-codec -- -D warnings
 
   build:
     name: Build
@@ -52,11 +58,17 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      - name: Run cargo build
+      - name: Run cargo build prost
         uses: actions-rs/cargo@v1.0.3
         with:
           command: build
-          args: --all-features --target ${{ matrix.target }}
+          args: --features flamegraph,prost-codec --target ${{ matrix.target }}
+
+      - name: Run cargo build protobuf
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: build
+          args: --features flamegraph,protobuf-codec --target ${{ matrix.target }}
 
   test:
     name: Test
@@ -77,8 +89,14 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           override: true
 
-      - name: Run cargo test
+      - name: Run cargo test prost
         uses: actions-rs/cargo@v1.0.3
         with:
           command: test
-          args: --all-features
+          args: --features flamegraph,prost-codec
+
+      - name: Run cargo test protobuf
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: test
+          args: --features flamegraph,protobuf-codec
