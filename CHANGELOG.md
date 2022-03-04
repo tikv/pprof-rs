@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add rust-protobuf support by adding protobuf-codec features (#106)
+
+### Changed
+- protobuf feature is renamed to prost-codec to align all other tikv projects (#106)
+
 ## [0.6.2] - 2021-12-24
 ### Added
 - implement `Clone` for `ProfilerGuardBuilder` [@yangkeao](https://github.com/YangKeao)
