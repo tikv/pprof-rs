@@ -210,6 +210,8 @@ mod flamegraph {
 }
 
 #[cfg(feature = "_protobuf")]
+#[allow(clippy::useless_conversion)]
+#[allow(clippy::needless_update)]
 mod protobuf {
     use super::*;
     use crate::protos;
