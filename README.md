@@ -36,7 +36,8 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 
 - `cpp` enables the cpp demangle.
 - `flamegraph` enables the flamegraph report format.
-- `protobuf` enables the pprof protobuf report format.
+- `prost-codec` enables the pprof protobuf report format through `prost`.
+- `protobuf-codec` enables the pprof protobuf report format through `protobuf` crate.
 
 ## Flamegraph
 
