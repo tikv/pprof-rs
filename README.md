@@ -12,14 +12,14 @@
 First, get a guard to start profiling. Profiling will continue until this guard was dropped.
 
 ```rust
-let guard = pprof::ProfilerGuard::new(100).unwrap();
+let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
 ```
 
 During the profiling time, you can get a report with the guard.
 
 ```rust
 if let Ok(report) = guard.report().build() {
-    println!("report: {}", &report);
+    println!("report: {:?}", &report);
 };
 ```
 
@@ -217,8 +217,10 @@ Unfortunately, there is no 100% robust stack tracing method. [Some related resea
 This can be resolved by adding a blocklist:
 
 ```rust
-let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
 ```
+
+The `vdso` should also be added to the blocklist, because in some distribution (e.g. ubuntu 18.04), the dwarf information in vdso is incorrect.
 
 ### Signal Safety
 
