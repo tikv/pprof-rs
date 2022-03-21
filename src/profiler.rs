@@ -181,12 +181,12 @@ fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc:
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     write_thread_name_fallback(current_thread, name);
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu"))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
     let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
