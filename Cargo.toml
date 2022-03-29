@@ -10,16 +10,21 @@ documentation = "https://docs.rs/pprof/"
 readme = "README.md"
 
 [features]
-default = ["cpp"]
+default = ["cpp", "backtrace-rs"]
 flamegraph = ["inferno"]
+
 # A private feature to indicate either prost-codec or protobuf-codec is enabled.
 _protobuf = []
 prost-codec = ["prost", "prost-derive", "prost-build", "_protobuf"]
 protobuf-codec = ["protobuf", "protobuf-codegen-pure", "_protobuf"]
+
+backtrace-rs = ["backtrace"]
+frame-pointer = []
+
 cpp = ["symbolic-demangle/cpp"]
 
 [dependencies]
-backtrace = "0.3"
+backtrace = { version = "0.3", optional = true }
 once_cell = "1.9"
 libc = "^0.2.66"
 log = "0.4"

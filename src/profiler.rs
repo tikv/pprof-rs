@@ -3,7 +3,6 @@
 use std::convert::TryInto;
 use std::os::raw::c_int;
 
-use backtrace::Frame;
 use nix::sys::signal;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
@@ -12,6 +11,7 @@ use smallvec::SmallVec;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
+use crate::backtrace::{trace, FrameImpl};
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
@@ -124,7 +124,7 @@ pub struct ProfilerGuard<'a> {
 
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
-    let _lock = PROFILER.read();
+    let _ = PROFILER.read();
 }
 
 impl ProfilerGuard<'_> {
@@ -181,12 +181,12 @@ fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc:
     }
 }
 
-#[cfg(not(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu")))]
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     write_thread_name_fallback(current_thread, name);
 }
 
-#[cfg(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
     let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
@@ -244,20 +244,18 @@ extern "C" fn perf_signal_handler(
                 }
             }
 
-            let mut bt: SmallVec<[Frame; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
+            let mut bt: SmallVec<[FrameImpl; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
 
-            unsafe {
-                backtrace::trace_unsynchronized(|frame| {
-                    if index < MAX_DEPTH {
-                        bt.push(frame.clone());
-                        index += 1;
-                        true
-                    } else {
-                        false
-                    }
-                });
-            }
+            trace(|frame| {
+                if index < MAX_DEPTH {
+                    bt.push(frame.clone());
+                    index += 1;
+                    true
+                } else {
+                    false
+                }
+            });
 
             let current_thread = unsafe { libc::pthread_self() };
             let mut name = [0; MAX_THREAD_NAME];
@@ -349,7 +347,7 @@ impl Profiler {
     // This function has to be AS-safe
     pub fn sample(
         &mut self,
-        backtrace: SmallVec<[Frame; MAX_DEPTH]>,
+        backtrace: SmallVec<[FrameImpl; MAX_DEPTH]>,
         thread_name: &[u8],
         thread_id: u64,
     ) {

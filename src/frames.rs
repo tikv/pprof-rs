@@ -6,15 +6,15 @@ use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
 
-use backtrace::Frame;
 use smallvec::SmallVec;
 use symbolic_demangle::demangle;
 
+use crate::backtrace::{Frame, FrameImpl};
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 #[derive(Clone)]
 pub struct UnresolvedFrames {
-    pub frames: SmallVec<[Frame; MAX_DEPTH]>,
+    pub frames: SmallVec<[FrameImpl; MAX_DEPTH]>,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
     pub thread_id: u64,
@@ -39,7 +39,7 @@ impl Debug for UnresolvedFrames {
 }
 
 impl UnresolvedFrames {
-    pub fn new(frames: SmallVec<[Frame; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
+    pub fn new(frames: SmallVec<[FrameImpl; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
         thread_name[0..thread_name_length].clone_from_slice(tn);
@@ -96,7 +96,7 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn raw_name(&self) -> &[u8] {
-        self.name.as_deref().unwrap_or(b"Unknow")
+        self.name.as_deref().unwrap_or(b"Unknown")
     }
 
     pub fn name(&self) -> String {
@@ -111,7 +111,7 @@ impl Symbol {
         self.filename
             .as_ref()
             .map(|name| name.as_os_str().to_string_lossy())
-            .unwrap_or_else(|| Cow::Borrowed("Unknow"))
+            .unwrap_or_else(|| Cow::Borrowed("Unknown"))
     }
 
     pub fn lineno(&self) -> u32 {
@@ -121,13 +121,16 @@ impl Symbol {
 
 unsafe impl Send for Symbol {}
 
-impl From<&backtrace::Symbol> for Symbol {
-    fn from(symbol: &backtrace::Symbol) -> Self {
+impl<T> From<&T> for Symbol
+where
+    T: crate::backtrace::Symbol,
+{
+    fn from(symbol: &T) -> Self {
         Symbol {
-            name: symbol.name().map(|name| name.as_bytes().to_vec()),
+            name: symbol.name(),
             addr: symbol.addr(),
             lineno: symbol.lineno(),
-            filename: symbol.filename().map(|filename| filename.to_owned()),
+            filename: symbol.filename(),
         }
     }
 }
@@ -177,9 +180,9 @@ impl From<UnresolvedFrames> for Frames {
         let mut frame_iter = frames.frames.iter();
 
         while let Some(frame) = frame_iter.next() {
-            let mut symbols = Vec::new();
+            let mut symbols: Vec<Symbol> = Vec::new();
 
-            backtrace::resolve_frame(frame, |symbol| {
+            frame.resolve_symbol(|symbol| {
                 let symbol = Symbol::from(symbol);
                 symbols.push(symbol);
             });
