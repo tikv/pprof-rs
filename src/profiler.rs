@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
-use crate::backtrace::{TraceImpl, Trace, Frame};
+use crate::backtrace::{Frame, Trace, TraceImpl};
 
 use crate::collector::Collector;
 use crate::error::{Error, Result};
@@ -246,7 +246,8 @@ extern "C" fn perf_signal_handler(
                 }
             }
 
-            let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
+            let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> =
+                SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
             TraceImpl::trace(ucontext, |frame| {
                 let ip = Frame::ip(frame);

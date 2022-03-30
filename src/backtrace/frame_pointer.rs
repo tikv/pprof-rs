@@ -40,9 +40,10 @@ impl super::Trace for Trace {
 
     fn trace<F: FnMut(&Self::Frame) -> bool>(ucontext: *mut libc::c_void, mut cb: F) {
         let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
-        
+
         #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-        let frame_pointer = unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RBP as usize] as usize };
+        let frame_pointer =
+            unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RBP as usize] as usize };
 
         #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
         let frame_pointer = unsafe {

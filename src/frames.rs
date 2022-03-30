@@ -39,7 +39,11 @@ impl Debug for UnresolvedFrames {
 }
 
 impl UnresolvedFrames {
-    pub fn new(frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
+    pub fn new(
+        frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
+        tn: &[u8],
+        thread_id: u64,
+    ) -> Self {
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
         thread_name[0..thread_name_length].clone_from_slice(tn);

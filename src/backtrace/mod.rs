@@ -39,7 +39,9 @@ pub trait Frame: Sized + Clone {
 pub trait Trace {
     type Frame;
 
-    fn trace<F: FnMut(&Self::Frame) -> bool>(_: *mut libc::c_void, cb: F) where Self: Sized;
+    fn trace<F: FnMut(&Self::Frame) -> bool>(_: *mut libc::c_void, cb: F)
+    where
+        Self: Sized;
 }
 
 #[cfg(feature = "backtrace-rs")]
@@ -47,7 +49,13 @@ mod backtrace_rs;
 #[cfg(feature = "backtrace-rs")]
 pub use backtrace_rs::Trace as TraceImpl;
 
-#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), feature = "frame-pointer"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "frame-pointer"
+))]
 pub mod frame_pointer;
-#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), feature = "frame-pointer"))]
+#[cfg(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "frame-pointer"
+))]
 pub use frame_pointer::Trace as TraceImpl;
