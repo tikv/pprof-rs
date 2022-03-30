@@ -55,7 +55,7 @@ impl super::Trace for Trace {
         };
 
         #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-        let addr = unsafe { (*ucontext).uc_mcontext.regs[29] as usize };
+        let frame_pointer = unsafe { (*ucontext).uc_mcontext.regs[29] as usize };
 
         // TODO: support arm64 on macos
 
