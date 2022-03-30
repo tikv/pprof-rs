@@ -11,7 +11,8 @@ use smallvec::SmallVec;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
-use crate::backtrace::{trace, FrameImpl};
+use crate::backtrace::{TraceImpl, Trace, Frame};
+
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
@@ -54,6 +55,7 @@ impl ProfilerGuardBuilder {
     pub fn frequency(self, frequency: c_int) -> Self {
         Self { frequency, ..self }
     }
+
     #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
     pub fn blocklist<T: AsRef<str>>(self, blocklist: &[T]) -> Self {
         let blocklist_segments = {
@@ -208,7 +210,7 @@ extern "C" fn perf_signal_handler(
 ) {
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
-            #[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
             if !ucontext.is_null() {
                 let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
 
@@ -244,10 +246,14 @@ extern "C" fn perf_signal_handler(
                 }
             }
 
-            let mut bt: SmallVec<[FrameImpl; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
+            let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> = SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
+            TraceImpl::trace(ucontext, |frame| {
+                let ip = Frame::ip(frame);
+                if profiler.is_blocklisted(ip) {
+                    return false;
+                }
 
-            trace(|frame| {
                 if index < MAX_DEPTH {
                     bt.push(frame.clone());
                     index += 1;
@@ -347,7 +353,7 @@ impl Profiler {
     // This function has to be AS-safe
     pub fn sample(
         &mut self,
-        backtrace: SmallVec<[FrameImpl; MAX_DEPTH]>,
+        backtrace: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
         thread_name: &[u8],
         thread_id: u64,
     ) {

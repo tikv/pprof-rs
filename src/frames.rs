@@ -9,12 +9,12 @@ use std::path::PathBuf;
 use smallvec::SmallVec;
 use symbolic_demangle::demangle;
 
-use crate::backtrace::{Frame, FrameImpl};
+use crate::backtrace::{Frame, Trace, TraceImpl};
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 #[derive(Clone)]
 pub struct UnresolvedFrames {
-    pub frames: SmallVec<[FrameImpl; MAX_DEPTH]>,
+    pub frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
     pub thread_id: u64,
@@ -39,7 +39,7 @@ impl Debug for UnresolvedFrames {
 }
 
 impl UnresolvedFrames {
-    pub fn new(frames: SmallVec<[FrameImpl; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
+    pub fn new(frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>, tn: &[u8], thread_id: u64) -> Self {
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
         thread_name[0..thread_name_length].clone_from_slice(tn);

@@ -33,14 +33,22 @@ pub trait Frame: Sized + Clone {
 
     fn resolve_symbol<F: FnMut(&Self::S)>(&self, cb: F);
     fn symbol_address(&self) -> *mut c_void;
+    fn ip(&self) -> usize;
 }
 
-// #[cfg(feature = "backtrace-rs")]
-// mod backtrace_rs;
-// #[cfg(feature = "backtrace-rs")]
-// pub use backtrace_rs::{trace, Frame as FrameImpl, Symbol as SymbolImpl};
 
-#[cfg(feature = "frame-pointer")]
-mod frame_pointer;
-#[cfg(feature = "frame-pointer")]
-pub use frame_pointer::{trace, Frame as FrameImpl, Symbol as SymbolImpl};
+pub trait Trace {
+    type Frame;
+
+    fn trace<F: FnMut(&Self::Frame) -> bool>(_: *mut libc::c_void, cb: F) where Self: Sized;
+}
+
+#[cfg(feature = "backtrace-rs")]
+mod backtrace_rs;
+#[cfg(feature = "backtrace-rs")]
+pub use backtrace_rs::Trace as TraceImpl;
+
+#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), feature = "frame-pointer"))]
+pub mod frame_pointer;
+#[cfg(all(any(target_arch = "x86_64", target_arch = "aarch64"), feature = "frame-pointer"))]
+pub use frame_pointer::Trace as TraceImpl;

@@ -2,7 +2,7 @@
 
 use std::ptr::null_mut;
 
-use libc::{backtrace, c_void};
+use libc::c_void;
 
 #[derive(Clone, Debug)]
 pub struct Frame {
@@ -17,6 +17,10 @@ extern "C" {
 impl super::Frame for Frame {
     type S = backtrace::Symbol;
 
+    fn ip(&self) -> usize {
+        self.ip
+    }
+
     fn resolve_symbol<F: FnMut(&Self::S)>(&self, cb: F) {
         backtrace::resolve(self.ip as *mut c_void, cb);
     }
@@ -30,26 +34,67 @@ impl super::Frame for Frame {
     }
 }
 
-pub fn trace<F: FnMut(&Frame) -> bool>(mut cb: F) {
-    let mut backtraces: [*mut *mut c_void; 32] = [null_mut(); 32];
+pub struct Trace {}
+impl super::Trace for Trace {
+    type Frame = Frame;
 
-    let length = unsafe {
-        let ret = backtrace(backtraces.as_mut_ptr() as *mut *mut c_void, backtraces.len() as i32);
-        if ret < 0 {
-            return;
-        } else {
-            ret as usize
-        }
-    };
+    fn trace<F: FnMut(&Self::Frame) -> bool>(ucontext: *mut libc::c_void, mut cb: F) {
+        let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+        
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+        let frame_pointer = unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RBP as usize] as usize };
 
-    for backtrace in backtraces[0..length].iter() {
-        let frame = Frame {
-            ip: *backtrace as usize,
+        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+        let frame_pointer = unsafe {
+            let mcontext = (*ucontext).uc_mcontext;
+            if mcontext.is_null() {
+                0
+            } else {
+                (*mcontext).__ss.__rbp as usize
+            }
         };
-        if !cb(&frame) {
-            break;
+
+        // TODO: support arm64
+
+        let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
+        let mut last_frame_pointer = null_mut();
+        loop {
+            // The stack grow from high address to low address.
+            // for glibc, we have a `__libc_stack_end` to get the highest address of stack.
+            #[cfg(target_env = "gnu")]
+            if frame_pointer > __libc_stack_end {
+                break;
+            }
+
+            // the frame pointer should never be smaller than the former one.
+            if frame_pointer < last_frame_pointer {
+                break;
+            }
+            last_frame_pointer = frame_pointer;
+
+            // iterate to the next frame
+            let frame = Frame {
+                ip: unsafe { (*frame_pointer).ret },
+            };
+
+            if !cb(&frame) {
+                break;
+            }
+            frame_pointer = unsafe { (*frame_pointer).frame_pointer };
         }
     }
 }
+
+extern "C" {
+    static __libc_stack_end: *mut FramePointerLayout;
+}
+
+#[cfg(target_arch = "x86_64")]
+#[repr(C)]
+struct FramePointerLayout {
+    frame_pointer: *mut FramePointerLayout,
+    ret: usize,
+}
+
 
 pub use backtrace::Symbol;
