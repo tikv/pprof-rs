@@ -94,7 +94,6 @@ extern "C" {
     static __libc_stack_end: *mut FramePointerLayout;
 }
 
-#[cfg(target_arch = "x86_64")]
 #[repr(C)]
 struct FramePointerLayout {
     frame_pointer: *mut FramePointerLayout,
