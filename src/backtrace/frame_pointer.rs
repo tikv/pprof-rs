@@ -54,7 +54,10 @@ impl super::Trace for Trace {
             }
         };
 
-        // TODO: support arm64
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+        let addr = unsafe { (*ucontext).uc_mcontext.regs[29] as usize };
+
+        // TODO: support arm64 on macos
 
         let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
         let mut last_frame_pointer = null_mut();
@@ -62,8 +65,10 @@ impl super::Trace for Trace {
             // The stack grow from high address to low address.
             // for glibc, we have a `__libc_stack_end` to get the highest address of stack.
             #[cfg(target_env = "gnu")]
-            if frame_pointer > __libc_stack_end {
-                break;
+            unsafe {
+                if frame_pointer > __libc_stack_end {
+                    break;
+                }
             }
 
             // the frame pointer should never be smaller than the former one.
@@ -95,6 +100,3 @@ struct FramePointerLayout {
     frame_pointer: *mut FramePointerLayout,
     ret: usize,
 }
-
-
-pub use backtrace::Symbol;

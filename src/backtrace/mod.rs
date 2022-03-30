@@ -36,7 +36,6 @@ pub trait Frame: Sized + Clone {
     fn ip(&self) -> usize;
 }
 
-
 pub trait Trace {
     type Frame;
 

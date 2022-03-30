@@ -19,7 +19,7 @@ prost-codec = ["prost", "prost-derive", "prost-build", "_protobuf"]
 protobuf-codec = ["protobuf", "protobuf-codegen-pure", "_protobuf"]
 
 backtrace-rs = ["backtrace"]
-frame-pointer = []
+frame-pointer = ["backtrace"]
 
 cpp = ["symbolic-demangle/cpp"]
 
