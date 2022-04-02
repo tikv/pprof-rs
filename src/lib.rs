@@ -24,7 +24,7 @@
 //! More configuration can be passed through `ProfilerGuardBuilder`:
 //!
 //! ```rust
-//! let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread"]).build().unwrap();
+//! let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
 //! ```
 //!
 //! The frequency means the sampler frequency, and the `blocklist` means the
@@ -33,7 +33,8 @@
 //!
 //! Skipping `libc`, `libgcc` and `libpthread` could be a solution to the
 //! possible deadlock inside the `_Unwind_Backtrace`, and keep the signal
-//! safety.
+//! safety. The dwarf information in "vdso" is incorrect in some distributions,
+//! so it's also suggested to skip it.
 //!
 //! You can find more details in
 //! [README.md](https://github.com/tikv/pprof-rs/blob/master/README.md)
@@ -61,11 +62,20 @@ pub use self::report::{Report, ReportBuilder};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
-#[cfg(feature = "protobuf")]
+#[cfg(all(feature = "prost-codec", not(feature = "protobuf-codec")))]
 pub mod protos {
     pub use prost::Message;
 
     include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
+}
+
+#[cfg(feature = "protobuf-codec")]
+pub mod protos {
+    pub use protobuf::Message;
+
+    include!(concat!(env!("OUT_DIR"), "/mod.rs"));
+
+    pub use self::profile::*;
 }
 
 #[cfg(feature = "criterion")]
