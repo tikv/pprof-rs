@@ -1,6 +1,6 @@
 // Copyright 2022 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::ptr::null_mut;
+use std::arch::asm;
 
 use libc::c_void;
 
@@ -61,7 +61,27 @@ impl super::Trace for Trace {
         // TODO: support arm64 on macos
 
         let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
-        let mut last_frame_pointer = null_mut();
+
+        // Initialize the `last_frame_pointer` with current frame pointer
+        // in case that the first frame doesn't have a frame pointer, and cause
+        // panic
+
+        // So that, we get a rough scope of the stack: from `__libc_stack_end`
+        // to the current stack pointer
+        let mut last_frame_pointer;
+        unsafe {
+            #[cfg(target_arch = "x86_64")]
+            asm!(
+                "mov {last_frame_pointer}, rbp",
+                last_frame_pointer = out(reg) last_frame_pointer,
+            );
+
+            #[cfg(target_arch = "aarch64")]
+            asm!(
+                "mov {last_frame_pointer}, r29",
+                last_frame_pointer = out(reg) last_frame_pointer,
+            );
+        }
         loop {
             // The stack grow from high address to low address.
             // for glibc, we have a `__libc_stack_end` to get the highest address of stack.
