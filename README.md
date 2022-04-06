@@ -38,6 +38,8 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 - `flamegraph` enables the flamegraph report format.
 - `prost-codec` enables the pprof protobuf report format through `prost`.
 - `protobuf-codec` enables the pprof protobuf report format through `protobuf` crate.
+- `backtrace-rs` unwind the backtrace through `backtrace-rs` (which calls the `Unwind_Backtrace`).
+- `frame-pointer` gets the backtrace through frame pointer.
 
 ## Flamegraph
 
@@ -221,6 +223,12 @@ let guard = pprof::ProfilerGuardBuilder::default().frequency(1000).blocklist(&["
 ```
 
 The `vdso` should also be added to the blocklist, because in some distribution (e.g. ubuntu 18.04), the dwarf information in vdso is incorrect.
+
+### Frame Pointer
+
+The `pprof-rs` also supports unwinding through frame pointer, without the need to use `libunwind`. However, the standard library shipped with the rust compiler does not have the correct frame pointer in every function, so you need to use `cargo +nightly -Z build-std` to build the standard library from source.
+
+As we cannot get the stack boundaries inside the signal handler, it's also not possible to ensure the safety. If the frame pointer was set to a wrong value, the program will panic.
 
 ### Signal Safety
 

@@ -79,6 +79,12 @@ jobs:
           command: build
           args: --features flamegraph,protobuf-codec --target ${{ matrix.target }}
 
+      - name: Run cargo build frame pointer
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: build
+          args: --no-default-features --features frame-pointer --target ${{ matrix.target }}
+
   test:
     name: Test
     strategy:

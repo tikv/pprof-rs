@@ -84,13 +84,13 @@ impl super::Trace for Trace {
         }
         loop {
             // The stack grow from high address to low address.
-            // for glibc, we have a `__libc_stack_end` to get the highest address of stack.
-            #[cfg(target_env = "gnu")]
-            unsafe {
-                if frame_pointer > __libc_stack_end {
-                    break;
-                }
-            }
+            // but we don't have a reasonable assumption for the hightest address
+            // the `__libc_stack_end` is not thread-local, and only represent the
+            // stack end of the main thread. For other thread, their stacks are allocated
+            // by the `pthread`.
+            //
+            // TODO: If we can hook the thread creation, we will have chance to get the
+            // stack end through `pthread_get_attr`.
 
             // the frame pointer should never be smaller than the former one.
             if frame_pointer < last_frame_pointer {
@@ -109,10 +109,6 @@ impl super::Trace for Trace {
             frame_pointer = unsafe { (*frame_pointer).frame_pointer };
         }
     }
-}
-
-extern "C" {
-    static __libc_stack_end: *mut FramePointerLayout;
 }
 
 #[repr(C)]

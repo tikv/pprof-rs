@@ -126,7 +126,7 @@ pub struct ProfilerGuard<'a> {
 
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
-    let _ = PROFILER.read();
+    let _profiler = PROFILER.read();
 }
 
 impl ProfilerGuard<'_> {
