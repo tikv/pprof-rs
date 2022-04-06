@@ -78,7 +78,7 @@ impl super::Trace for Trace {
 
             #[cfg(target_arch = "aarch64")]
             asm!(
-                "mov {last_frame_pointer}, r29",
+                "mov {last_frame_pointer}, x29",
                 last_frame_pointer = out(reg) last_frame_pointer,
             );
         }
