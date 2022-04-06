@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Add `frame-pointer` feature to unwind the stack with frame pointer.
+- Add `frame-pointer` feature to unwind the stack with frame pointer (#116)
+
+### Changed
+- The user has to specify one unwind implementation (`backtrace-rs` or `frame-pointer`) in the features (#116)
 
 ## [0.7.0] - 2022-03-08
 
