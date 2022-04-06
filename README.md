@@ -39,7 +39,7 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 - `prost-codec` enables the pprof protobuf report format through `prost`.
 - `protobuf-codec` enables the pprof protobuf report format through `protobuf` crate.
 - `backtrace-rs` unwind the backtrace through `backtrace-rs` (which calls the `Unwind_Backtrace`).
-- `frame-pointer` gets the backtrace through frame pointer.
+- `frame-pointer` gets the backtrace through frame pointer. **only available for nightly**
 
 ## Flamegraph
 
