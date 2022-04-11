@@ -23,7 +23,7 @@ fn open_pipe() -> nix::Result<()> {
         pipes[0] = read_fd;
         pipes[1] = write_fd;
 
-        return Ok(());
+        Ok(())
     })
 }
 
@@ -43,10 +43,8 @@ pub fn validate(addr: *const libc::c_void) -> bool {
         }
     });
 
-    if !valid_read {
-        if let Err(_) = open_pipe() {
-            return false;
-        }
+    if !valid_read && open_pipe().is_err() {
+        return false;
     }
 
     MEM_VALIDATE_PIPE.with(|pipes| {
