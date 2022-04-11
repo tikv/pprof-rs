@@ -76,5 +76,10 @@ name = "collector"
 path = "benches/collector.rs"
 harness = false
 
+[[bench]]
+name = "addr_validate"
+path = "benches/addr_validate.rs"
+harness = false
+
 [package.metadata.docs.rs]
 all-features = true
