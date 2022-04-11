@@ -4,6 +4,8 @@ use std::arch::asm;
 
 use libc::c_void;
 
+use crate::addr_validate::validate;
+
 #[derive(Clone, Debug)]
 pub struct Frame {
     pub ip: usize,
@@ -94,6 +96,10 @@ impl super::Trace for Trace {
 
             // the frame pointer should never be smaller than the former one.
             if frame_pointer < last_frame_pointer {
+                break;
+            }
+
+            if !validate(frame_pointer as *const libc::c_void) {
                 break;
             }
             last_frame_pointer = frame_pointer;
