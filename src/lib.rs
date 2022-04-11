@@ -45,7 +45,9 @@ pub const MAX_DEPTH: usize = 32;
 /// Define the MAX supported thread name length. TODO: make this variable mutable.
 pub const MAX_THREAD_NAME: usize = 16;
 
+#[cfg(target_os = "linux")]
 mod addr_validate;
+
 mod backtrace;
 mod collector;
 mod error;
@@ -54,7 +56,9 @@ mod profiler;
 mod report;
 mod timer;
 
+#[cfg(target_os = "linux")]
 pub use self::addr_validate::validate;
+
 pub use self::collector::{Collector, HashCounter};
 
 pub use self::error::{Error, Result};
