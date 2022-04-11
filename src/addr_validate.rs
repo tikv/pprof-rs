@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, mem::size_of};
 
 use nix::{
     errno::Errno,
@@ -28,11 +28,13 @@ fn open_pipe() -> nix::Result<()> {
 }
 
 pub fn validate(addr: *const libc::c_void) -> bool {
+    const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
+
     // read data in the pipe
     let valid_read = MEM_VALIDATE_PIPE.with(|pipes| {
         let pipes = pipes.borrow();
         loop {
-            let mut buf = [0u8];
+            let mut buf = [0u8; CHECK_LENGTH];
 
             match read(pipes[0], &mut buf) {
                 Ok(bytes) => break bytes > 0,
@@ -50,7 +52,7 @@ pub fn validate(addr: *const libc::c_void) -> bool {
     MEM_VALIDATE_PIPE.with(|pipes| {
         let pipes = pipes.borrow();
         loop {
-            let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, 1) };
+            let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
 
             match write(pipes[1], buf) {
                 Ok(bytes) => break bytes > 0,
