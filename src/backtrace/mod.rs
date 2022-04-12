@@ -51,13 +51,11 @@ pub use backtrace_rs::Trace as TraceImpl;
 
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "aarch64"),
-    target_os = "linux",
     feature = "frame-pointer"
 ))]
 pub mod frame_pointer;
 #[cfg(all(
     any(target_arch = "x86_64", target_arch = "aarch64"),
-    target_os = "linux",
     feature = "frame-pointer"
 ))]
 pub use frame_pointer::Trace as TraceImpl;
