@@ -362,7 +362,7 @@ mod tests {
 }
 
 #[cfg(test)]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "musl")))]
 mod malloc_free_test {
     use super::*;
     use std::cell::RefCell;

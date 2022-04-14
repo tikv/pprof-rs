@@ -181,15 +181,15 @@ fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc:
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(any(not(any(target_os = "linux", target_os = "macos")), target_env = "musl"))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     write_thread_name_fallback(current_thread, name);
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), not(target_env = "musl")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
-    let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
+    let ret = unsafe { pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
 
     if ret != 0 {
         write_thread_name_fallback(current_thread, name);
@@ -361,7 +361,7 @@ impl Profiler {
 }
 
 #[cfg(test)]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "musl")))]
 mod tests {
     use super::*;
 
