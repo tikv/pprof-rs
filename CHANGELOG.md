@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Update prost from 0.9 to 0.10 (#113, #114, #115)
 
+### Fixed
+- Fix pthread_getname_np not available on musl (#110)
+
 ## [0.7.0] - 2022-03-08
 
 ### Added
