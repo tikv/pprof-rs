@@ -18,9 +18,7 @@ struct Itimerval {
     pub it_value: Timeval,
 }
 
-extern "C" {
-    fn setitimer(which: c_int, new_value: *mut Itimerval, old_value: *mut Itimerval) -> c_int;
-}
+
 
 const ITIMER_PROF: c_int = 2;
 
@@ -40,14 +38,7 @@ impl Timer {
         let it_value = it_interval.clone();
 
         unsafe {
-            setitimer(
-                ITIMER_PROF,
-                &mut Itimerval {
-                    it_interval,
-                    it_value,
-                },
-                null_mut(),
-            )
+
         };
 
         Timer {
@@ -76,14 +67,7 @@ impl Drop for Timer {
         };
         let it_value = it_interval.clone();
         unsafe {
-            setitimer(
-                ITIMER_PROF,
-                &mut Itimerval {
-                    it_interval,
-                    it_value,
-                },
-                null_mut(),
-            )
+
         };
     }
 }
