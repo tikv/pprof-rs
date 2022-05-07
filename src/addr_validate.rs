@@ -18,19 +18,21 @@ fn create_pipe() -> nix::Result<(i32, i32)> {
     pipe2(OFlag::O_CLOEXEC | OFlag::O_NONBLOCK)
 }
 
+#[inline]
 #[cfg(target_os = "macos")]
-unsafe fn create_pipe() -> nix::Result<(i32, i32)> {
-    use nix::fcntl::{fcntl, OFlag};
+fn create_pipe() -> nix::Result<(i32, i32)> {
+    use nix::fcntl::{fcntl, FcntlArg, FdFlag};
+    use nix::unistd::pipe;
 
-    let (read_fd, write_fd) = libc::pipe(fds)?;
+    let (read_fd, write_fd) = pipe()?;
 
-    let mut flags = fcntl(read_fd, FcntlArg::F_GETFL)?;
-    flags |= libc::O_CLOEXEC;
-    fcntl(read_fd, libc::F_SETFD, flags)?;
+    let mut flags = FdFlag::from_bits(fcntl(read_fd, FcntlArg::F_GETFL)?).unwrap();
+    flags |= FdFlag::FD_CLOEXEC;
+    fcntl(read_fd, FcntlArg::F_SETFD(flags))?;
 
-    let mut flags = fcntl(write_fd, FcntlArg::F_GETFL)?;
-    flags |= libc::O_CLOEXEC;
-    fcntl(write_fd, libc::F_SETFD, flags)?;
+    let mut flags = FdFlag::from_bits(fcntl(write_fd, FcntlArg::F_GETFL)?).unwrap();
+    flags |= FdFlag::FD_CLOEXEC;
+    fcntl(write_fd, FcntlArg::F_SETFD(flags))?;
 
     Ok((read_fd, write_fd))
 }
