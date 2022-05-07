@@ -2,12 +2,37 @@ use std::{cell::RefCell, mem::size_of};
 
 use nix::{
     errno::Errno,
-    fcntl::OFlag,
-    unistd::{close, pipe2, read, write},
+    unistd::{close, read, write},
 };
 
 thread_local! {
     static MEM_VALIDATE_PIPE: RefCell<[i32; 2]> = RefCell::new([-1, -1]);
+}
+
+#[inline]
+#[cfg(target_os = "linux")]
+fn create_pipe() -> nix::Result<(i32, i32)> {
+    use nix::fcntl::OFlag;
+    use nix::unistd::pipe2;
+
+    pipe2(OFlag::O_CLOEXEC | OFlag::O_NONBLOCK)
+}
+
+#[cfg(target_os = "macos")]
+unsafe fn create_pipe() -> nix::Result<(i32, i32)> {
+    use nix::fcntl::{fcntl, OFlag};
+
+    let (read_fd, write_fd) = libc::pipe(fds)?;
+
+    let mut flags = fcntl(read_fd, FcntlArg::F_GETFL)?;
+    flags |= libc::O_CLOEXEC;
+    fcntl(read_fd, libc::F_SETFD, flags)?;
+
+    let mut flags = fcntl(write_fd, FcntlArg::F_GETFL)?;
+    flags |= libc::O_CLOEXEC;
+    fcntl(write_fd, libc::F_SETFD, flags)?;
+
+    Ok((read_fd, write_fd))
 }
 
 fn open_pipe() -> nix::Result<()> {
@@ -18,7 +43,7 @@ fn open_pipe() -> nix::Result<()> {
         let _ = close(pipes[0]);
         let _ = close(pipes[1]);
 
-        let (read_fd, write_fd) = pipe2(OFlag::O_CLOEXEC | OFlag::O_NONBLOCK)?;
+        let (read_fd, write_fd) = create_pipe()?;
 
         pipes[0] = read_fd;
         pipes[1] = write_fd;

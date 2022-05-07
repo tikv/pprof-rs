@@ -12,7 +12,6 @@ use smallvec::SmallVec;
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
 use crate::backtrace::{Frame, Trace, TraceImpl};
-
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
