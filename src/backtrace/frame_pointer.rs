@@ -1,6 +1,6 @@
 // Copyright 2022 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::arch::asm;
+use std::ptr::null_mut;
 
 use libc::c_void;
 
@@ -68,7 +68,7 @@ impl super::Trace for Trace {
 
         let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
 
-        let mut last_frame_pointer = 0;
+        let mut last_frame_pointer: *mut FramePointerLayout = null_mut();
         loop {
             // The stack grow from high address to low address.
             // but we don't have a reasonable assumption for the hightest address
@@ -80,7 +80,7 @@ impl super::Trace for Trace {
             // stack end through `pthread_get_attr`.
 
             // the frame pointer should never be smaller than the former one.
-            if last_frame_pointer != 0 && frame_pointer < last_frame_pointer {
+            if !last_frame_pointer.is_null() && frame_pointer < last_frame_pointer {
                 break;
             }
 
