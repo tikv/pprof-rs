@@ -33,7 +33,7 @@ fn create_pipe() -> nix::Result<(i32, i32)> {
         flags |= OFlag::O_NONBLOCK;
         fcntl(fd, FcntlArg::F_SETFL(flags))?;
         Ok(())
-    };
+    }
 
     let (read_fd, write_fd) = pipe()?;
     set_flags(read_fd)?;

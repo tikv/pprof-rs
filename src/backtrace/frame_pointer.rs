@@ -64,7 +64,15 @@ impl super::Trace for Trace {
         #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
         let frame_pointer = unsafe { (*ucontext).uc_mcontext.regs[29] as usize };
 
-        // TODO: support arm64 on macos
+        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+        let frame_pointer = unsafe {
+            let mcontext = (*ucontext).uc_mcontext;
+            if mcontext.is_null() {
+                0
+            } else {
+                (*mcontext).__ss.__fp as usize
+            }
+        };
 
         let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
 
