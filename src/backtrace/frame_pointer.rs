@@ -4,7 +4,6 @@ use std::ptr::null_mut;
 
 use libc::c_void;
 
-#[cfg(target_os = "linux")]
 use crate::addr_validate::validate;
 
 #[derive(Clone, Debug)]
@@ -92,7 +91,6 @@ impl super::Trace for Trace {
                 break;
             }
 
-            #[cfg(target_os = "linux")]
             if !validate(frame_pointer as *const libc::c_void) {
                 break;
             }
