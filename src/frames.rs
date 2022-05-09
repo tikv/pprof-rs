@@ -104,6 +104,13 @@ impl Symbol {
     }
 
     pub fn name(&self) -> String {
+        self.name_with_demangle(demangle)
+    }
+
+    pub fn name_with_demangle<T>(&self, demangle: T) -> String
+    where
+        T: Fn(&str) -> Cow<str> + 'static,
+    {
         demangle(&String::from_utf8_lossy(self.raw_name())).into_owned()
     }
 
