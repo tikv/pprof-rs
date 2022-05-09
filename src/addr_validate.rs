@@ -27,11 +27,11 @@ fn create_pipe() -> nix::Result<(i32, i32)> {
     let (read_fd, write_fd) = pipe()?;
 
     let mut flags = FdFlag::from_bits(fcntl(read_fd, FcntlArg::F_GETFL)?).unwrap();
-    flags |= FdFlag::FD_CLOEXEC;
+    flags |= FdFlag::FD_CLOEXEC | FdFlag::O_NONBLOCK;
     fcntl(read_fd, FcntlArg::F_SETFD(flags))?;
 
     let mut flags = FdFlag::from_bits(fcntl(write_fd, FcntlArg::F_GETFL)?).unwrap();
-    flags |= FdFlag::FD_CLOEXEC;
+    flags |= FdFlag::FD_CLOEXEC | FdFlag::O_NONBLOCK;
     fcntl(write_fd, FcntlArg::F_SETFD(flags))?;
 
     Ok((read_fd, write_fd))
