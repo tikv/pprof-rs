@@ -137,7 +137,8 @@ impl<'a> ReportBuilder<'a> {
                 profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
-                        let mut key = Frames::from(entry.item.clone());
+                        let mut key =
+                            Frames::from_with_demangle(entry.item.clone(), &self.demangle);
                         if let Some(processor) = &self.frames_post_processor {
                             processor(&mut key);
                         }
@@ -261,7 +262,7 @@ mod protobuf {
                 dedup_str.insert(key.thread_name_or_id());
                 for frame in key.frames.iter() {
                     for symbol in frame {
-                        dedup_str.insert(symbol.name_with_demangle(&self.demangle));
+                        dedup_str.insert(symbol.name());
                         dedup_str.insert(symbol.sys_name().into_owned());
                         dedup_str.insert(symbol.filename().into_owned());
                     }
@@ -289,7 +290,7 @@ mod protobuf {
                 let mut locs = vec![];
                 for frame in key.frames.iter() {
                     for symbol in frame {
-                        let name = symbol.name_with_demangle(&self.demangle);
+                        let name = symbol.name();
                         if let Some(loc_idx) = functions.get(&name) {
                             locs.push(*loc_idx);
                             continue;

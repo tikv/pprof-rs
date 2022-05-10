@@ -86,7 +86,10 @@ impl Hash for UnresolvedFrames {
 #[derive(Debug, Clone)]
 pub struct Symbol {
     /// This name is raw name of a symbol (which hasn't been demangled).
-    pub name: Option<Vec<u8>>,
+    pub raw_name: Option<Vec<u8>>,
+
+    /// This name is demangled name of a symbol.
+    pub name: Option<String>,
 
     /// The address of the function. It is not 100% trustworthy.
     pub addr: Option<*mut c_void>,
@@ -100,18 +103,11 @@ pub struct Symbol {
 
 impl Symbol {
     pub fn raw_name(&self) -> &[u8] {
-        self.name.as_deref().unwrap_or(b"Unknown")
+        self.raw_name.as_deref().unwrap_or(b"Unknown")
     }
 
-    pub fn name(&self) -> String {
-        self.name_with_demangle(demangle)
-    }
-
-    pub fn name_with_demangle<T>(&self, demangle: T) -> String
-    where
-        T: Fn(&str) -> Cow<str> + 'static,
-    {
-        demangle(&String::from_utf8_lossy(self.raw_name())).into_owned()
+    pub fn name(&self) -> &str {
+        self.name.as_deref().unwrap_or("Unknown")
     }
 
     pub fn sys_name(&self) -> Cow<str> {
@@ -137,8 +133,24 @@ where
     T: crate::backtrace::Symbol,
 {
     fn from(symbol: &T) -> Self {
+        Self::from_with_demangle(symbol, demangle)
+    }
+}
+
+impl Symbol {
+    pub fn from_with_demangle<T, F>(symbol: &T, demangle: F) -> Self
+    where
+        T: crate::backtrace::Symbol,
+        F: Fn(&str) -> Cow<str>,
+    {
+        let raw_name = symbol.name();
+        let name = symbol
+            .name()
+            .map(|name| demangle(&String::from_utf8_lossy(&name)).to_string());
+
         Symbol {
-            name: symbol.name(),
+            raw_name,
+            name,
             addr: symbol.addr(),
             lineno: symbol.lineno(),
             filename: symbol.filename(),
@@ -186,6 +198,15 @@ impl Frames {
 
 impl From<UnresolvedFrames> for Frames {
     fn from(frames: UnresolvedFrames) -> Self {
+        Self::from_with_demangle(frames, demangle)
+    }
+}
+
+impl Frames {
+    pub fn from_with_demangle<F>(frames: UnresolvedFrames, demangle: F) -> Self
+    where
+        F: Fn(&str) -> Cow<str> + Copy,
+    {
         let mut fs = Vec::new();
 
         let mut frame_iter = frames.frames.iter();
@@ -194,7 +215,7 @@ impl From<UnresolvedFrames> for Frames {
             let mut symbols: Vec<Symbol> = Vec::new();
 
             frame.resolve_symbol(|symbol| {
-                let symbol = Symbol::from(symbol);
+                let symbol = Symbol::from_with_demangle(symbol, demangle);
                 symbols.push(symbol);
             });
 
@@ -246,31 +267,17 @@ mod tests {
 
     #[test]
     fn demangle_rust() {
-        let symbol = Symbol {
-            name: Some(b"_ZN3foo3barE".to_vec()),
-            addr: None,
-            lineno: None,
-            filename: None,
-        };
-
-        assert_eq!(&symbol.name(), "foo::bar")
+        let demangled = demangle("_ZN3foo3barE");
+        assert_eq!(demangled, "foo::bar")
     }
 
     #[test]
     fn demangle_cpp() {
         let name =
-            b"_ZNK3MapI10StringName3RefI8GDScriptE10ComparatorIS0_E16DefaultAllocatorE3hasERKS0_"
-                .to_vec();
-
-        let symbol = Symbol {
-            name: Some(name),
-            addr: None,
-            lineno: None,
-            filename: None,
-        };
+            "_ZNK3MapI10StringName3RefI8GDScriptE10ComparatorIS0_E16DefaultAllocatorE3hasERKS0_";
 
         assert_eq!(
-            &symbol.name(),
+            demangle(name),
             "Map<StringName, Ref<GDScript>, Comparator<StringName>, DefaultAllocator>::has(StringName const&) const"
         )
     }
