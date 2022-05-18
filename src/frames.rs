@@ -106,8 +106,8 @@ impl Symbol {
         self.raw_name.as_deref().unwrap_or(b"Unknown")
     }
 
-    pub fn name(&self) -> &str {
-        self.name.as_deref().unwrap_or("Unknown")
+    pub fn name(&self) -> String {
+        self.name.as_deref().unwrap_or("Unknown").to_string()
     }
 
     pub fn sys_name(&self) -> Cow<str> {
@@ -160,7 +160,7 @@ impl Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(self.name())
+        f.write_str(&self.name())
     }
 }
 
