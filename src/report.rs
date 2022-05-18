@@ -262,7 +262,7 @@ mod protobuf {
                 dedup_str.insert(key.thread_name_or_id());
                 for frame in key.frames.iter() {
                     for symbol in frame {
-                        dedup_str.insert(symbol.name());
+                        dedup_str.insert(symbol.name().to_string());
                         dedup_str.insert(symbol.sys_name().into_owned());
                         dedup_str.insert(symbol.filename().into_owned());
                     }
@@ -301,7 +301,7 @@ mod protobuf {
                         let function_id = fn_tbl.len() as u64 + 1;
                         let function = protos::Function {
                             id: function_id,
-                            name: *strings.get(name.as_str()).unwrap() as i64,
+                            name: *strings.get(name).unwrap() as i64,
                             system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
                             filename: *strings.get(filename.as_ref()).unwrap() as i64,
                             ..protos::Function::default()

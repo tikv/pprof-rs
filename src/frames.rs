@@ -160,7 +160,7 @@ impl Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.name())
+        f.write_str(self.name())
     }
 }
 
