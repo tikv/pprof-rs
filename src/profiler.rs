@@ -197,6 +197,40 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
     }
 }
 
+struct ErrnoProtector(libc::c_int);
+
+impl ErrnoProtector {
+    fn new() -> Self {
+        unsafe {
+            #[cfg(target_os = "linux")]
+            {
+                let errno = *libc::__errno_location();
+                Self(errno)
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let errno = *libc::__error();
+                Self(errno)
+            }
+        }
+    }
+}
+
+impl Drop for ErrnoProtector {
+    fn drop(&mut self) {
+        unsafe {
+            #[cfg(target_os = "linux")]
+            {
+                *libc::__errno_location() = self.0;
+            }
+            #[cfg(target_os = "macos")]
+            {
+                *libc::__error() = self.0;
+            }
+        }
+    }
+}
+
 #[no_mangle]
 #[cfg_attr(
     not(all(any(target_arch = "x86_64", target_arch = "aarch64"))),
@@ -207,6 +241,8 @@ extern "C" fn perf_signal_handler(
     _siginfo: *mut libc::siginfo_t,
     ucontext: *mut libc::c_void,
 ) {
+    let _errno = ErrnoProtector::new();
+
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
             #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
