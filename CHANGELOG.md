@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2022-05-19
+
+### Fixed
+- Protect the error number in signal handler (#128)
+
 ## [0.9.0] - 2022-05-09
 
 ### Added

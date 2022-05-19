@@ -1,6 +1,6 @@
 [package]
 name = "pprof"
-version = "0.9.0"
+version = "0.9.1"
 authors = ["Yang Keao <keao.yang@yahoo.com>"]
 edition = "2021"
 license = "Apache-2.0"
