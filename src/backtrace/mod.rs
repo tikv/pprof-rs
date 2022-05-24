@@ -44,9 +44,15 @@ pub trait Trace {
         Self: Sized;
 }
 
-#[cfg(feature = "backtrace-rs")]
+#[cfg(not(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "frame-pointer"
+)))]
 mod backtrace_rs;
-#[cfg(feature = "backtrace-rs")]
+#[cfg(not(all(
+    any(target_arch = "x86_64", target_arch = "aarch64"),
+    feature = "frame-pointer"
+)))]
 pub use backtrace_rs::Trace as TraceImpl;
 
 #[cfg(all(
