@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Remove `backtrace-rs` feature, as the default choice when not specified (#130)
+
+## [0.9.1] - 2022-05-19
+
+### Fixed
+- Protect the error number in signal handler (#128)
+
+## [0.9.0] - 2022-05-09
+
 ### Added
 - Add `frame-pointer` feature to unwind the stack with frame pointer (#116)
 
