@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `demangle` setter to the `ReportBuilder` to allow using custom demangler (#126)
+
 ### Changed
 - Remove `backtrace-rs` feature, as the default choice when not specified (#130)
 
