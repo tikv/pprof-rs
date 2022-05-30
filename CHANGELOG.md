@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Protect the error number in signal handler (#128)
+- Support custom demangler (#126)
 
 ## [0.9.0] - 2022-05-09
 
