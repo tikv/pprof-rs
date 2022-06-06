@@ -2,6 +2,7 @@
 
 use std::convert::TryInto;
 use std::os::raw::c_int;
+use std::time::SystemTime;
 
 use nix::sys::signal;
 use once_cell::sync::Lazy;
@@ -284,6 +285,8 @@ extern "C" fn perf_signal_handler(
             let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> =
                 SmallVec::with_capacity(MAX_DEPTH);
             let mut index = 0;
+
+            let sample_timestamp: SystemTime = SystemTime::now();
             TraceImpl::trace(ucontext, |frame| {
                 let ip = Frame::ip(frame);
                 if profiler.is_blocklisted(ip) {
@@ -306,7 +309,7 @@ extern "C" fn perf_signal_handler(
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(bt, name.to_bytes(), current_thread as u64);
+            profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
         }
     }
 }
@@ -392,8 +395,9 @@ impl Profiler {
         backtrace: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
         thread_name: &[u8],
         thread_id: u64,
+        sample_timestamp: SystemTime,
     ) {
-        let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id);
+        let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id, sample_timestamp);
         self.sample_counter += 1;
 
         if let Ok(()) = self.data.add(frames, 1) {}

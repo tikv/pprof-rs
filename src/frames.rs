@@ -5,6 +5,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::os::raw::c_void;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 use smallvec::SmallVec;
 use symbolic_demangle::demangle;
@@ -18,6 +19,7 @@ pub struct UnresolvedFrames {
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
     pub thread_id: u64,
+    pub sample_timestamp: SystemTime,
 }
 
 impl Default for UnresolvedFrames {
@@ -28,6 +30,7 @@ impl Default for UnresolvedFrames {
             thread_name: [0; MAX_THREAD_NAME],
             thread_name_length: 0,
             thread_id: 0,
+            sample_timestamp: SystemTime::now(),
         }
     }
 }
@@ -43,6 +46,7 @@ impl UnresolvedFrames {
         frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
         tn: &[u8],
         thread_id: u64,
+        sample_timestamp: SystemTime,
     ) -> Self {
         let thread_name_length = tn.len();
         let mut thread_name = [0; MAX_THREAD_NAME];
@@ -53,6 +57,7 @@ impl UnresolvedFrames {
             thread_name,
             thread_name_length,
             thread_id,
+            sample_timestamp,
         }
     }
 }
@@ -164,6 +169,7 @@ pub struct Frames {
     pub frames: Vec<Vec<Symbol>>,
     pub thread_name: String,
     pub thread_id: u64,
+    pub sample_timestamp: SystemTime,
 }
 
 impl Frames {
@@ -210,6 +216,7 @@ impl From<UnresolvedFrames> for Frames {
             thread_name: String::from_utf8_lossy(&frames.thread_name[0..frames.thread_name_length])
                 .into_owned(),
             thread_id: frames.thread_id,
+            sample_timestamp: frames.sample_timestamp,
         }
     }
 }
