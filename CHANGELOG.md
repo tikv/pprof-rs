@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Remove `backtrace-rs` feature, as the default choice when not specified (#130)
 
+### Added
+- Add `sample_timestamp` to Frames and UnresolvedFrames in order to have more fine-grained info on when the samples are collected (#133)
+- 
 ### Fixed
 - Export `UnresolvedReport` type to allow developers to get the unresolved report (#132)
 
