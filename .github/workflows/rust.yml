@@ -129,6 +129,7 @@ jobs:
         with:
           profile: minimal
           toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
           override: true
 
       - name: Run cargo test prost
