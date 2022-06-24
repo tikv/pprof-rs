@@ -369,8 +369,13 @@ mod malloc_free_test {
     use std::collections::BTreeMap;
     use std::ffi::c_void;
 
+    #[cfg(not(target_env = "gnu"))]
+    #[allow(clippy::wrong_self_convention)]
+    #[allow(non_upper_case_globals)]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
     extern "C" {
-        #[cfg(target_os = "linux")]
+        #[cfg(target_env = "gnu")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;

@@ -183,12 +183,12 @@ fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc:
     }
 }
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     write_thread_name_fallback(current_thread, name);
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu"))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
     let name_ptr = name as *mut [libc::c_char] as *mut libc::c_char;
     let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
@@ -411,10 +411,15 @@ mod tests {
 
     use std::cell::RefCell;
     use std::ffi::c_void;
-
     use std::ptr::null_mut;
 
+    #[cfg(not(target_env = "gnu"))]
+    #[allow(clippy::wrong_self_convention)]
+    #[allow(non_upper_case_globals)]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
     extern "C" {
+        #[cfg(target_env = "gnu")]
         static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
         fn malloc(size: usize) -> *mut c_void;
