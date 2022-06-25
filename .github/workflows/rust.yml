@@ -33,13 +33,13 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
-          args: --features flamegraph,prost-codec -- -D warnings
+          args: --all-targets --features flamegraph,prost-codec -- -D warnings
 
       - name: Run cargo clippy protobuf
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
-          args: --features flamegraph,protobuf-codec -- -D warnings
+          args: --all-targets --features flamegraph,protobuf-codec -- -D warnings
 
   build:
     name: Build

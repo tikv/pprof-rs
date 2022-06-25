@@ -1,6 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof;
 use std::sync::Arc;
 
 #[inline(never)]
@@ -35,8 +34,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }
@@ -77,7 +76,7 @@ fn main() {
         })
         .unwrap();
 
-    let p3 = prime_numbers.clone();
+    let p3 = prime_numbers;
     std::thread::spawn(move || loop {
         let mut _v = 0;
 
@@ -89,17 +88,14 @@ fn main() {
     });
 
     loop {
-        match guard
+        if let Ok(report) = guard
             .report()
             .frames_post_processor(|frames| {
                 frames.thread_name = "PROCESSED".to_string();
             })
             .build()
         {
-            Ok(report) => {
-                println!("{:?}", report);
-            }
-            Err(_) => {}
+            println!("{:?}", report);
         };
         std::thread::sleep(std::time::Duration::from_secs(1))
     }

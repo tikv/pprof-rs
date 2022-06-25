@@ -1,6 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof;
 use pprof::protos::Message;
 use std::fs::File;
 use std::io::Write;
@@ -69,8 +68,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }
@@ -93,29 +92,24 @@ fn main() {
             if is_prime_number2(i, &prime_numbers) {
                 v += 1;
             }
-        } else {
-            if is_prime_number3(i, &prime_numbers) {
-                v += 1;
-            }
+        } else if is_prime_number3(i, &prime_numbers) {
+            v += 1;
         }
     }
 
     println!("Prime numbers: {}", v);
 
-    match guard.report().build() {
-        Ok(report) => {
-            let mut file = File::create("profile.pb").unwrap();
-            let profile = report.pprof().unwrap();
+    if let Ok(report) = guard.report().build() {
+        let mut file = File::create("profile.pb").unwrap();
+        let profile = report.pprof().unwrap();
 
-            let mut content = Vec::new();
-            #[cfg(not(feature = "protobuf-codec"))]
-            profile.encode(&mut content).unwrap();
-            #[cfg(feature = "protobuf-codec")]
-            profile.write_to_vec(&mut content).unwrap();
-            file.write_all(&content).unwrap();
+        let mut content = Vec::new();
+        #[cfg(not(feature = "protobuf-codec"))]
+        profile.encode(&mut content).unwrap();
+        #[cfg(feature = "protobuf-codec")]
+        profile.write_to_vec(&mut content).unwrap();
+        file.write_all(&content).unwrap();
 
-            println!("report: {:?}", report);
-        }
-        Err(_) => {}
+        println!("report: {:?}", report);
     };
 }
