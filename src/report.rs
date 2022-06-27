@@ -1,9 +1,11 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 
 use parking_lot::RwLock;
+use symbolic_demangle::demangle;
 
 use crate::frames::{Frames, UnresolvedFrames};
 use crate::profiler::Profiler;
@@ -32,6 +34,8 @@ pub struct UnresolvedReport {
 /// A builder of `Report` and `UnresolvedReport`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
     frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
+    demangle: Box<dyn Fn(&str) -> Cow<str>>,
+
     profiler: &'a RwLock<Result<Profiler>>,
     timing: ReportTiming,
 }
@@ -40,6 +44,8 @@ impl<'a> ReportBuilder<'a> {
     pub(crate) fn new(profiler: &'a RwLock<Result<Profiler>>, timing: ReportTiming) -> Self {
         Self {
             frames_post_processor: None,
+            demangle: Box::new(demangle),
+
             profiler,
             timing,
         }
@@ -53,6 +59,29 @@ impl<'a> ReportBuilder<'a> {
     {
         self.frames_post_processor
             .replace(Box::new(frames_post_processor));
+
+        self
+    }
+
+    /// Set `demangle` of a `ReportBuilder`. Before finally building a report,
+    /// `demangle` will be applied to every symbol.
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::borrow::Cow;
+    /// fn demangle(symbol:&str) -> Cow<'_, str> {
+    ///     println!("demangling {}", symbol);
+    ///     Cow::from(symbol)
+    /// };
+    ///
+    /// let guard = pprof::ProfilerGuard::new(100).unwrap();
+    /// guard.report().demangle(demangle).build().unwrap();
+    /// ```
+    pub fn demangle<T>(&mut self, demangle: T) -> &mut Self
+    where
+        T: Fn(&str) -> Cow<str> + 'static,
+    {
+        self.demangle = Box::new(demangle);
 
         self
     }
@@ -108,7 +137,8 @@ impl<'a> ReportBuilder<'a> {
                 profiler.data.try_iter()?.for_each(|entry| {
                     let count = entry.count;
                     if count > 0 {
-                        let mut key = Frames::from(entry.item.clone());
+                        let mut key =
+                            Frames::from_with_demangle(entry.item.clone(), &self.demangle);
                         if let Some(processor) = &self.frames_post_processor {
                             processor(&mut key);
                         }

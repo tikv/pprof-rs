@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add `demangle` setter to the `ReportBuilder` to allow using custom demangler (#126)
+
 ### Changed
 - Remove `backtrace-rs` feature, as the default choice when not specified (#130)
 
@@ -19,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Protect the error number in signal handler (#128)
+- Support custom demangler (#126)
 
 ## [0.9.0] - 2022-05-09
 
