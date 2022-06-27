@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2022-06-27
+
 ### Changed
 - Remove `backtrace-rs` feature, as the default choice when not specified (#130)
 
