@@ -1,6 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof;
 use std::fs::File;
 
 #[inline(never)]
@@ -67,8 +66,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }
@@ -91,22 +90,17 @@ fn main() {
             if is_prime_number2(i, &prime_numbers) {
                 v += 1;
             }
-        } else {
-            if is_prime_number3(i, &prime_numbers) {
-                v += 1;
-            }
+        } else if is_prime_number3(i, &prime_numbers) {
+            v += 1;
         }
     }
 
     println!("Prime numbers: {}", v);
 
-    match guard.report().build() {
-        Ok(report) => {
-            let file = File::create("flamegraph.svg").unwrap();
-            report.flamegraph(file).unwrap();
+    if let Ok(report) = guard.report().build() {
+        let file = File::create("flamegraph.svg").unwrap();
+        report.flamegraph(file).unwrap();
 
-            println!("report: {:?}", &report);
-        }
-        Err(_) => {}
+        println!("report: {:?}", &report);
     };
 }

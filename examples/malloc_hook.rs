@@ -2,7 +2,6 @@
 
 extern crate libc;
 
-use pprof;
 use std::ffi::c_void;
 
 #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
@@ -78,8 +77,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }

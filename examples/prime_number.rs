@@ -1,7 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof;
-
 #[inline(never)]
 fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {
     if v < 10000 {
@@ -34,8 +32,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }
@@ -58,11 +56,8 @@ fn main() {
 
         println!("Prime numbers: {}", v);
 
-        match guard.report().build() {
-            Ok(report) => {
-                println!("{:?}", report);
-            }
-            Err(_) => {}
+        if let Ok(report) = guard.report().build() {
+            println!("{:?}", report);
         };
     }
 }

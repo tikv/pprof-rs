@@ -1,6 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use pprof;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -36,8 +35,8 @@ fn prepare_prime_numbers() -> Vec<usize> {
         }
     }
     let mut prime_numbers = vec![];
-    for i in 2..10000 {
-        if prime_number_table[i] {
+    for (i, exist) in prime_number_table.iter().enumerate().skip(2) {
+        if *exist {
             prime_numbers.push(i);
         }
     }
@@ -78,7 +77,7 @@ fn main() {
         })
         .unwrap();
 
-    let p3 = prime_numbers.clone();
+    let p3 = prime_numbers;
     std::thread::spawn(move || loop {
         let mut _v = 0;
 
@@ -90,14 +89,11 @@ fn main() {
     });
 
     std::thread::sleep(std::time::Duration::from_secs(5));
-    match guard.report().build() {
-        Ok(report) => {
-            let file = File::create("flamegraph.svg").unwrap();
-            report.flamegraph(file).unwrap();
+    if let Ok(report) = guard.report().build() {
+        let file = File::create("flamegraph.svg").unwrap();
+        report.flamegraph(file).unwrap();
 
-            println!("{:?}", report);
-        }
-        Err(_) => {}
+        println!("{:?}", report);
     };
 
     //    pprof::PROFILER.lock().unwrap().stop();

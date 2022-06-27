@@ -102,7 +102,7 @@ mod test {
     fn validate_stack() {
         let i = 0;
 
-        assert_eq!(validate(&i as *const _ as *const libc::c_void), true);
+        assert!(validate(&i as *const _ as *const libc::c_void));
     }
 
     #[test]
@@ -110,13 +110,13 @@ mod test {
         let vec = vec![0; 1000];
 
         for i in vec.iter() {
-            assert_eq!(validate(i as *const _ as *const libc::c_void), true);
+            assert!(validate(i as *const _ as *const libc::c_void));
         }
     }
 
     #[test]
     fn failed_validate() {
-        assert_eq!(validate(0 as *const libc::c_void), false);
-        assert_eq!(validate((-1 as i32) as usize as *const libc::c_void), false)
+        assert!(!validate(std::ptr::null::<libc::c_void>()));
+        assert!(!validate(-1_i32 as usize as *const libc::c_void))
     }
 }
