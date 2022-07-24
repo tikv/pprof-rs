@@ -3,6 +3,8 @@
 use libc::c_void;
 use std::path::PathBuf;
 
+pub use crate::platform::TraceImpl;
+
 pub trait Symbol: Sized {
     fn name(&self) -> Option<Vec<u8>>;
     fn addr(&self) -> Option<*mut c_void>;
@@ -43,25 +45,3 @@ pub trait Trace {
     where
         Self: Sized;
 }
-
-#[cfg(not(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "frame-pointer"
-)))]
-mod backtrace_rs;
-#[cfg(not(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "frame-pointer"
-)))]
-pub use backtrace_rs::Trace as TraceImpl;
-
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "frame-pointer"
-))]
-pub mod frame_pointer;
-#[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
-    feature = "frame-pointer"
-))]
-pub use frame_pointer::Trace as TraceImpl;
