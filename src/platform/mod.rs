@@ -1,19 +1,19 @@
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-mod platform_nix {
+mod nix_impl {
     pub mod addr_validate;
     pub mod profiler;
     pub mod timer;
 }
 
 #[cfg(target_os = "windows")]
-mod platform_windows {
+mod windows_impl {
     pub mod addr_validate;
     pub mod profiler;
     pub mod timer;
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
-pub use platform_nix::*;
+pub use nix_impl::*;
 
 #[cfg(target_os = "windows")]
-pub use platform_windows::*;
+pub use windows_impl::*;

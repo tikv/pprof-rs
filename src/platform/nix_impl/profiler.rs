@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 
 use nix::sys::signal;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::profiler::PROFILER;
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
@@ -181,5 +181,114 @@ extern "C" fn perf_signal_handler(
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
             profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::cell::RefCell;
+    use std::ffi::c_void;
+    use std::ptr::null_mut;
+
+    #[cfg(not(target_env = "gnu"))]
+    #[allow(clippy::wrong_self_convention)]
+    #[allow(non_upper_case_globals)]
+    static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
+    extern "C" {
+        #[cfg(target_env = "gnu")]
+        static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
+
+        fn malloc(size: usize) -> *mut c_void;
+    }
+
+    thread_local! {
+        static FLAG: RefCell<bool> = RefCell::new(false);
+    }
+
+    extern "C" fn malloc_hook(size: usize) -> *mut c_void {
+        unsafe {
+            __malloc_hook = None;
+        }
+
+        FLAG.with(|flag| {
+            flag.replace(true);
+        });
+        let p = unsafe { malloc(size) };
+
+        unsafe {
+            __malloc_hook = Some(malloc_hook);
+        }
+
+        p
+    }
+
+    #[inline(never)]
+    fn is_prime_number(v: usize, prime_numbers: &[usize]) -> bool {
+        if v < 10000 {
+            let r = prime_numbers.binary_search(&v);
+            return r.is_ok();
+        }
+
+        for n in prime_numbers {
+            if v % n == 0 {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    #[inline(never)]
+    fn prepare_prime_numbers() -> Vec<usize> {
+        // bootstrap: Generate a prime table of 0..10000
+        let mut prime_number_table: [bool; 10000] = [true; 10000];
+        prime_number_table[0] = false;
+        prime_number_table[1] = false;
+        for i in 2..10000 {
+            if prime_number_table[i] {
+                let mut v = i * 2;
+                while v < 10000 {
+                    prime_number_table[v] = false;
+                    v += i;
+                }
+            }
+        }
+        let mut prime_numbers = vec![];
+        for (i, item) in prime_number_table.iter().enumerate().skip(2) {
+            if *item {
+                prime_numbers.push(i);
+            }
+        }
+        prime_numbers
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn malloc_free() {
+        trigger_lazy();
+
+        let prime_numbers = prepare_prime_numbers();
+
+        let mut _v = 0;
+
+        unsafe {
+            __malloc_hook = Some(malloc_hook);
+        }
+        for i in 2..50000 {
+            if is_prime_number(i, &prime_numbers) {
+                _v += 1;
+                perf_signal_handler(27, null_mut(), null_mut());
+            }
+        }
+        unsafe {
+            __malloc_hook = None;
+        }
+
+        FLAG.with(|flag| {
+            assert!(!*flag.borrow());
+        });
     }
 }
