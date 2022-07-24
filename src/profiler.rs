@@ -123,7 +123,7 @@ pub struct ProfilerGuard<'a> {
     timer: Option<Timer>,
 }
 
-fn trigger_lazy() {
+pub(crate) fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
     let _profiler = PROFILER.read();
 }

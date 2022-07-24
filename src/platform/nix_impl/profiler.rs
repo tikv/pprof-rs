@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use nix::sys::signal;
 
 use crate::error::Result;
-use crate::profiler::PROFILER;
+use crate::profiler::{trigger_lazy, PROFILER};
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 pub fn register() -> Result<()> {
