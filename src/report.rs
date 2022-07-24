@@ -159,7 +159,7 @@ impl Debug for Report {
 mod flamegraph {
     use super::*;
     use inferno::flamegraph;
-    use std::io::Write;
+    use std::{fmt::Write as _, io::Write};
 
     impl Report {
         /// `flamegraph` will write an svg flamegraph into `writer` **only available with `flamegraph` feature**
@@ -188,13 +188,13 @@ mod flamegraph {
 
                     for frame in key.frames.iter().rev() {
                         for symbol in frame.iter().rev() {
-                            line.push_str(&format!("{}", symbol));
+                            write!(line, "{}", symbol).unwrap();
                             line.push(';');
                         }
                     }
 
                     line.pop().unwrap_or_default();
-                    line.push_str(&format!(" {}", value));
+                    write!(line, " {}", value).unwrap();
 
                     line
                 })
