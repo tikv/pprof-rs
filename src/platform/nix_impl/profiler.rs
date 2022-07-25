@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use nix::sys::signal;
 
 use crate::error::Result;
-use crate::profiler::{trigger_lazy, PROFILER};
+use crate::profiler::PROFILER;
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 pub fn register() -> Result<()> {
@@ -187,6 +187,7 @@ extern "C" fn perf_signal_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::profiler::trigger_lazy;
 
     use std::cell::RefCell;
     use std::ffi::c_void;
