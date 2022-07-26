@@ -1,61 +1,38 @@
 use std::os::raw::c_int;
 use std::time::SystemTime;
 
-use crate::backtrace::{Frame, Trace, TraceImpl};
 use smallvec::SmallVec;
 
 use nix::sys::signal;
 
+use crate::backtrace::{Frame, Trace, TraceImpl};
 use crate::error::Result;
-use crate::profiler::PROFILER;
+use crate::profiler::{write_thread_name_fallback, Profiler, ProfilerImpl, PROFILER};
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
-pub fn register() -> Result<()> {
-    let handler = signal::SigHandler::SigAction(perf_signal_handler);
-    let sigaction = signal::SigAction::new(
-        handler,
-        signal::SaFlags::SA_SIGINFO,
-        signal::SigSet::empty(),
-    );
-    unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
+impl ProfilerImpl for Profiler {
+    fn register(&mut self) -> Result<()> {
+        let handler = signal::SigHandler::SigAction(perf_signal_handler);
+        let sigaction = signal::SigAction::new(
+            handler,
+            signal::SaFlags::SA_SIGINFO,
+            signal::SigSet::empty(),
+        );
+        unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
 
-    Ok(())
-}
-pub fn unregister() -> Result<()> {
-    let handler = signal::SigHandler::SigIgn;
-    unsafe { signal::signal(signal::SIGPROF, handler) }?;
-
-    Ok(())
-}
-
-fn write_thread_name_fallback(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
-    let mut len = 0;
-    let mut base = 1;
-
-    while current_thread as u128 > base && len < MAX_THREAD_NAME {
-        base *= 10;
-        len += 1;
+        Ok(())
     }
+    fn unregister(&mut self) -> Result<()> {
+        let handler = signal::SigHandler::SigIgn;
+        unsafe { signal::signal(signal::SIGPROF, handler) }?;
 
-    let mut index = 0;
-    while index < len && base > 1 {
-        base /= 10;
-
-        name[index] = match (48 + (current_thread as u128 / base) % 10).try_into() {
-            Ok(digit) => digit,
-            Err(_) => {
-                log::error!("fail to convert thread_id to string");
-                0
-            }
-        };
-
-        index += 1;
+        Ok(())
     }
 }
 
 #[cfg(not(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
-    write_thread_name_fallback(current_thread, name);
+    crate::profiler::write_thread_name_fallback(current_thread, name);
 }
 
 #[cfg(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu"))]

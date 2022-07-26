@@ -14,14 +14,43 @@ use crate::backtrace::{Trace, TraceImpl};
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
-use crate::platform;
-use crate::platform::timer::Timer;
 use crate::report::ReportBuilder;
-use crate::MAX_DEPTH;
+use crate::timer::Timer;
+use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
     Lazy::new(|| RwLock::new(Profiler::new()));
 
+pub fn write_thread_name_fallback<T: Into<u128>>(thread: T, name: &mut [libc::c_char]) {
+    let mut len = 0;
+    let mut base = 1;
+
+    let thread: u128 = thread.into();
+    while thread > base && len < MAX_THREAD_NAME {
+        base *= 10;
+        len += 1;
+    }
+
+    let mut index = 0;
+    while index < len && base > 1 {
+        base /= 10;
+
+        name[index] = match (48 + (thread / base) % 10).try_into() {
+            Ok(digit) => digit,
+            Err(_) => {
+                log::error!("fail to convert thread_id to string");
+                0
+            }
+        };
+
+        index += 1;
+    }
+}
+
+pub trait ProfilerImpl {
+    fn register(&mut self) -> Result<()>;
+    fn unregister(&mut self) -> Result<()>;
+}
 pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
     sample_counter: i32,
@@ -186,7 +215,7 @@ impl Profiler {
         if self.running {
             Err(Error::Running)
         } else {
-            platform::profiler::register()?;
+            Self::register(self)?;
             self.running = true;
 
             Ok(())
@@ -204,7 +233,7 @@ impl Profiler {
     pub fn stop(&mut self) -> Result<()> {
         log::info!("stopping cpu profiler");
         if self.running {
-            platform::profiler::unregister()?;
+            Self::unregister(self)?;
             self.init()?;
 
             Ok(())

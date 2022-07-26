@@ -6,8 +6,8 @@ use std::fmt::{Debug, Formatter};
 use parking_lot::RwLock;
 
 use crate::frames::{Frames, UnresolvedFrames};
-use crate::platform::timer::ReportTiming;
 use crate::profiler::Profiler;
+use crate::timer::ReportTiming;
 
 use crate::{Error, Result};
 

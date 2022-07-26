@@ -1,8 +1,11 @@
 use crate::error::Result;
+use crate::profiler::{Profiler, ProfilerImpl};
 
-pub fn register() -> Result<()> {
-    Ok(())
-}
-pub fn unregister() -> Result<()> {
-    Ok(())
+impl ProfilerImpl for Profiler {
+    fn register(&mut self) -> Result<()> {
+        unimplemented!()
+    }
+    fn unregister(&mut self) -> Result<()> {
+        unimplemented!()
+    }
 }

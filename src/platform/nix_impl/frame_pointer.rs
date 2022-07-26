@@ -4,7 +4,7 @@ use std::ptr::null_mut;
 
 use libc::c_void;
 
-use crate::validate;
+use crate::addr_validate;
 
 #[derive(Clone, Debug)]
 pub struct Frame {
@@ -91,7 +91,7 @@ impl crate::backtrace::Trace for Trace {
                 break;
             }
 
-            if !validate(frame_pointer as *const libc::c_void) {
+            if !addr_validate(frame_pointer as *const libc::c_void) {
                 break;
             }
             last_frame_pointer = frame_pointer;

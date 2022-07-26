@@ -1,8 +1,8 @@
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod nix_impl {
-    pub mod addr_validate;
-    pub mod profiler;
-    pub mod timer;
+    mod addr_validate;
+    mod profiler;
+    mod timer;
 
     #[cfg(all(
         any(target_arch = "x86_64", target_arch = "aarch64"),
@@ -30,9 +30,9 @@ mod nix_impl {
 
 #[cfg(target_os = "windows")]
 mod windows_impl {
-    pub mod addr_validate;
-    pub mod profiler;
-    pub mod timer;
+    mod addr_validate;
+    mod profiler;
+    mod timer;
 
     #[cfg(feature = "frame-pointer")]
     std::compile_error!("frame-pointer feature is currently not supported on windows.");
