@@ -1,9 +1,16 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
+// TODO Windows error is not finished
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[cfg(target_os = "windows")]
     #[error("{0}")]
-    NixError(#[from] nix::Error),
+    OsError(i32),
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[error("{0}")]
+    OsError(#[from] nix::Error),
+
     #[error("{0}")]
     IoError(#[from] std::io::Error),
     #[error("create profiler error")]

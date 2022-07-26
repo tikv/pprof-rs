@@ -1,7 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use pprof::validate;
+use pprof::addr_validate;
 
 fn bench_validate_addr(c: &mut Criterion) {
     c.bench_function("validate stack addr", |b| {
@@ -9,7 +9,7 @@ fn bench_validate_addr(c: &mut Criterion) {
 
         b.iter(|| {
             stack_addrs.iter().for_each(|item| {
-                validate(item as *const _ as *const libc::c_void);
+                addr_validate(item as *const _ as *const libc::c_void);
             })
         })
     });
@@ -19,7 +19,7 @@ fn bench_validate_addr(c: &mut Criterion) {
 
         b.iter(|| {
             heap_addrs.iter().for_each(|item| {
-                validate(item as *const _ as *const libc::c_void);
+                addr_validate(item as *const _ as *const libc::c_void);
             })
         })
     });

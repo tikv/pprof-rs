@@ -1,4 +1,4 @@
-impl super::Frame for backtrace::Frame {
+impl crate::backtrace::Frame for backtrace::Frame {
     type S = backtrace::Symbol;
 
     fn ip(&self) -> usize {
@@ -16,7 +16,7 @@ impl super::Frame for backtrace::Frame {
 
 pub struct Trace {}
 
-impl super::Trace for Trace {
+impl crate::backtrace::Trace for Trace {
     type Frame = backtrace::Frame;
 
     fn trace<F: FnMut(&Self::Frame) -> bool>(_: *mut libc::c_void, cb: F) {

@@ -4,7 +4,7 @@ use std::ptr::null_mut;
 
 use libc::c_void;
 
-use crate::addr_validate::validate;
+use crate::addr_validate;
 
 #[derive(Clone, Debug)]
 pub struct Frame {
@@ -16,7 +16,7 @@ extern "C" {
 
 }
 
-impl super::Frame for Frame {
+impl crate::backtrace::Frame for Frame {
     type S = backtrace::Symbol;
 
     fn ip(&self) -> usize {
@@ -37,7 +37,7 @@ impl super::Frame for Frame {
 }
 
 pub struct Trace {}
-impl super::Trace for Trace {
+impl crate::backtrace::Trace for Trace {
     type Frame = Frame;
 
     fn trace<F: FnMut(&Self::Frame) -> bool>(ucontext: *mut libc::c_void, mut cb: F) {
@@ -91,7 +91,7 @@ impl super::Trace for Trace {
                 break;
             }
 
-            if !validate(frame_pointer as *const libc::c_void) {
+            if !addr_validate(frame_pointer as *const libc::c_void) {
                 break;
             }
             last_frame_pointer = frame_pointer;

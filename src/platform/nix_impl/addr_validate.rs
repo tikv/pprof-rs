@@ -5,8 +5,48 @@ use nix::{
     unistd::{close, read, write},
 };
 
+use crate::validator::{Validator, ValidatorImpl};
+
 thread_local! {
     static MEM_VALIDATE_PIPE: RefCell<[i32; 2]> = RefCell::new([-1, -1]);
+}
+
+impl ValidatorImpl for Validator {
+    fn addr_validate(addr: *const libc::c_void) -> bool {
+        const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
+
+        // read data in the pipe
+        let valid_read = MEM_VALIDATE_PIPE.with(|pipes| {
+            let pipes = pipes.borrow();
+            loop {
+                let mut buf = [0u8; CHECK_LENGTH];
+
+                match read(pipes[0], &mut buf) {
+                    Ok(bytes) => break bytes > 0,
+                    Err(_err @ Errno::EINTR) => continue,
+                    Err(_err @ Errno::EAGAIN) => break true,
+                    Err(_) => break false,
+                }
+            }
+        });
+
+        if !valid_read && open_pipe().is_err() {
+            return false;
+        }
+
+        MEM_VALIDATE_PIPE.with(|pipes| {
+            let pipes = pipes.borrow();
+            loop {
+                let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
+
+                match write(pipes[1], buf) {
+                    Ok(bytes) => break bytes > 0,
+                    Err(_err @ Errno::EINTR) => continue,
+                    Err(_) => break false,
+                }
+            }
+        })
+    }
 }
 
 #[inline]
@@ -58,51 +98,15 @@ fn open_pipe() -> nix::Result<()> {
     })
 }
 
-pub fn validate(addr: *const libc::c_void) -> bool {
-    const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
-
-    // read data in the pipe
-    let valid_read = MEM_VALIDATE_PIPE.with(|pipes| {
-        let pipes = pipes.borrow();
-        loop {
-            let mut buf = [0u8; CHECK_LENGTH];
-
-            match read(pipes[0], &mut buf) {
-                Ok(bytes) => break bytes > 0,
-                Err(_err @ Errno::EINTR) => continue,
-                Err(_err @ Errno::EAGAIN) => break true,
-                Err(_) => break false,
-            }
-        }
-    });
-
-    if !valid_read && open_pipe().is_err() {
-        return false;
-    }
-
-    MEM_VALIDATE_PIPE.with(|pipes| {
-        let pipes = pipes.borrow();
-        loop {
-            let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
-
-            match write(pipes[1], buf) {
-                Ok(bytes) => break bytes > 0,
-                Err(_err @ Errno::EINTR) => continue,
-                Err(_) => break false,
-            }
-        }
-    })
-}
-
 #[cfg(test)]
 mod test {
-    use super::*;
+    use crate::addr_validate;
 
     #[test]
     fn validate_stack() {
         let i = 0;
 
-        assert!(validate(&i as *const _ as *const libc::c_void));
+        assert!(addr_validate(&i as *const _ as *const libc::c_void));
     }
 
     #[test]
@@ -110,13 +114,13 @@ mod test {
         let vec = vec![0; 1000];
 
         for i in vec.iter() {
-            assert!(validate(i as *const _ as *const libc::c_void));
+            assert!(addr_validate(i as *const _ as *const libc::c_void));
         }
     }
 
     #[test]
     fn failed_validate() {
-        assert!(!validate(std::ptr::null::<libc::c_void>()));
-        assert!(!validate(-1_i32 as usize as *const libc::c_void))
+        assert!(!addr_validate(std::ptr::null::<libc::c_void>()));
+        assert!(!addr_validate(-1_i32 as usize as *const libc::c_void))
     }
 }

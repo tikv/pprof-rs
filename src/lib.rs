@@ -45,7 +45,7 @@ pub const MAX_DEPTH: usize = 32;
 /// Define the MAX supported thread name length. TODO: make this variable mutable.
 pub const MAX_THREAD_NAME: usize = 16;
 
-mod addr_validate;
+mod platform;
 
 mod backtrace;
 mod collector;
@@ -54,13 +54,14 @@ mod frames;
 mod profiler;
 mod report;
 mod timer;
+mod validator;
 
-pub use self::addr_validate::validate;
 pub use self::collector::{Collector, HashCounter};
 pub use self::error::{Error, Result};
 pub use self::frames::{Frames, Symbol};
 pub use self::profiler::{ProfilerGuard, ProfilerGuardBuilder};
 pub use self::report::{Report, ReportBuilder, UnresolvedReport};
+pub use self::validator::addr_validate;
 
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
