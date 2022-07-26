@@ -21,11 +21,10 @@ use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
     Lazy::new(|| RwLock::new(Profiler::new()));
 
-pub fn write_thread_name_fallback<T: Into<u128>>(thread: T, name: &mut [libc::c_char]) {
+pub fn write_thread_name_fallback(thread: u128, name: &mut [libc::c_char]) {
     let mut len = 0;
     let mut base = 1;
 
-    let thread: u128 = thread.into();
     while thread > base && len < MAX_THREAD_NAME {
         base *= 10;
         len += 1;

@@ -32,7 +32,7 @@ impl ProfilerImpl for Profiler {
 
 #[cfg(not(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu")))]
 fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char]) {
-    crate::profiler::write_thread_name_fallback(current_thread, name);
+    write_thread_name_fallback(current_thread as usize as u128, name);
 }
 
 #[cfg(all(any(target_os = "linux", target_os = "macos"), target_env = "gnu"))]
@@ -41,7 +41,7 @@ fn write_thread_name(current_thread: libc::pthread_t, name: &mut [libc::c_char])
     let ret = unsafe { libc::pthread_getname_np(current_thread, name_ptr, MAX_THREAD_NAME) };
 
     if ret != 0 {
-        write_thread_name_fallback(current_thread, name);
+        write_thread_name_fallback(current_thread as usize as u128, name);
     }
 }
 
