@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Update `MAX_DEPTH` to 128
+
 ## [0.10.0] - 2022-06-27
 
 ### Changed
