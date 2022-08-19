@@ -65,6 +65,7 @@ pub use self::report::{Report, ReportBuilder, UnresolvedReport};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
+#[allow(clippy::all)]
 #[cfg(all(feature = "prost-codec", not(feature = "protobuf-codec")))]
 pub mod protos {
     pub use prost::Message;
