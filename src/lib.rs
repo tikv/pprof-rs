@@ -40,7 +40,7 @@
 //! [README.md](https://github.com/tikv/pprof-rs/blob/master/README.md)
 
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
-pub const MAX_DEPTH: usize = 32;
+pub const MAX_DEPTH: usize = 128;
 
 /// Define the MAX supported thread name length. TODO: make this variable mutable.
 pub const MAX_THREAD_NAME: usize = 16;
@@ -65,6 +65,7 @@ pub use self::report::{Report, ReportBuilder, UnresolvedReport};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
+#[allow(clippy::all)]
 #[cfg(all(feature = "prost-codec", not(feature = "protobuf-codec")))]
 pub mod protos {
     pub use prost::Message;
