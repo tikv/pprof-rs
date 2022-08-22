@@ -29,9 +29,11 @@ pub struct UnresolvedReport {
     pub timing: ReportTiming,
 }
 
+type FramesPostProcessor = Box<dyn Fn(&mut Frames)>;
+
 /// A builder of `Report` and `UnresolvedReport`. It builds report from a running `Profiler`.
 pub struct ReportBuilder<'a> {
-    frames_post_processor: Option<Box<dyn Fn(&mut Frames)>>,
+    frames_post_processor: Option<FramesPostProcessor>,
     profiler: &'a RwLock<Result<Profiler>>,
     timing: ReportTiming,
 }
@@ -159,13 +161,13 @@ impl Debug for Report {
 mod flamegraph {
     use super::*;
     use inferno::flamegraph;
-    use std::io::Write;
+    use std::fmt::Write;
 
     impl Report {
         /// `flamegraph` will write an svg flamegraph into `writer` **only available with `flamegraph` feature**
         pub fn flamegraph<W>(&self, writer: W) -> Result<()>
         where
-            W: Write,
+            W: std::io::Write,
         {
             self.flamegraph_with_options(writer, &mut flamegraph::Options::default())
         }
@@ -177,7 +179,7 @@ mod flamegraph {
             options: &mut flamegraph::Options,
         ) -> Result<()>
         where
-            W: Write,
+            W: std::io::Write,
         {
             let lines: Vec<String> = self
                 .data
@@ -188,13 +190,12 @@ mod flamegraph {
 
                     for frame in key.frames.iter().rev() {
                         for symbol in frame.iter().rev() {
-                            line.push_str(&format!("{}", symbol));
-                            line.push(';');
+                            write!(&mut line, "{};", symbol).unwrap();
                         }
                     }
 
                     line.pop().unwrap_or_default();
-                    line.push_str(&format!(" {}", value));
+                    write!(&mut line, " {}", value).unwrap();
 
                     line
                 })
