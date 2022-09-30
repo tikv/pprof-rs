@@ -70,7 +70,10 @@ pub use inferno::flamegraph;
 pub mod protos {
     pub use prost::Message;
 
-    include!(concat!(env!("OUT_DIR"), "/perftools.profiles.rs"));
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/proto/perftools.profiles.rs"
+    ));
 }
 
 #[cfg(feature = "protobuf-codec")]

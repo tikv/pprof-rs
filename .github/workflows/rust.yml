@@ -22,6 +22,9 @@ jobs:
           toolchain: stable
           override: true
           components: rustfmt, clippy
+      
+      - name: Install protobuf compiler
+        run: sudo apt-get install -y protobuf-compiler
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1.0.3
@@ -29,11 +32,17 @@ jobs:
           command: fmt
           args: --all -- --check
 
+      - name: Remove pre-generated prost files to force regeneration
+        run: rm proto/*.rs
+
       - name: Run cargo clippy prost
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
           args: --all-targets --features flamegraph,prost-codec -- -D warnings
+
+      - name: Check if the prost file committed to git is up-to-date
+        run: git diff --no-ext-diff --exit-code
 
       - name: Run cargo clippy protobuf
         uses: actions-rs/cargo@v1.0.3

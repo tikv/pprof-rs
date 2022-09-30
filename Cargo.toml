@@ -17,7 +17,7 @@ frame-pointer = []
 
 # A private feature to indicate either prost-codec or protobuf-codec is enabled.
 _protobuf = []
-prost-codec = ["prost", "prost-derive", "prost-build", "_protobuf"]
+prost-codec = ["prost", "prost-derive", "prost-build", "sha2", "_protobuf"]
 protobuf-codec = ["protobuf", "protobuf-codegen-pure", "_protobuf"]
 
 [dependencies]
@@ -34,8 +34,8 @@ cfg-if = "1.0"
 smallvec = "1.7"
 
 inferno = { version = "0.11", default-features = false, features = ["nameattr"], optional = true }
-prost = { version = "0.10", optional = true }
-prost-derive = { version = "0.10", optional = true }
+prost = { version = "0.11", optional = true }
+prost-derive = { version = "0.11", optional = true }
 protobuf = { version = "2.0", optional = true }
 criterion = {version = "0.4", optional = true}
 
@@ -49,7 +49,8 @@ criterion = "0.4"
 rand = "0.8.0"
 
 [build-dependencies]
-prost-build = { version = "0.10", optional = true }
+prost-build = { version = "0.11", optional = true }
+sha2 = { version = "0.10", optional = true }
 protobuf-codegen-pure = { version = "2.0", optional = true }
 
 [[example]]
