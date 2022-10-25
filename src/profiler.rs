@@ -374,7 +374,9 @@ impl Profiler {
         let handler = signal::SigHandler::SigAction(perf_signal_handler);
         let sigaction = signal::SigAction::new(
             handler,
-            signal::SaFlags::SA_SIGINFO,
+            // SA_RESTART will only restart a syscall when it's safe to do so,
+            // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
+            signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART,
             signal::SigSet::empty(),
         );
         unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
