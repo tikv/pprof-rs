@@ -45,23 +45,39 @@ pub trait Trace {
 }
 
 #[cfg(not(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    ),
     feature = "frame-pointer"
 )))]
 mod backtrace_rs;
 #[cfg(not(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    ),
     feature = "frame-pointer"
 )))]
 pub use backtrace_rs::Trace as TraceImpl;
 
 #[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    ),
     feature = "frame-pointer"
 ))]
 pub mod frame_pointer;
 #[cfg(all(
-    any(target_arch = "x86_64", target_arch = "aarch64"),
+    any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    ),
     feature = "frame-pointer"
 ))]
 pub use frame_pointer::Trace as TraceImpl;
