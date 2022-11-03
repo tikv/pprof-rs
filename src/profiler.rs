@@ -288,9 +288,12 @@ extern "C" fn perf_signal_handler(
 
             let sample_timestamp: SystemTime = SystemTime::now();
             TraceImpl::trace(ucontext, |frame| {
-                let ip = Frame::ip(frame);
-                if profiler.is_blocklisted(ip) {
-                    return false;
+                #[cfg(feature = "frame-pointer")]
+                {
+                    let ip = Frame::ip(frame);
+                    if profiler.is_blocklisted(ip) {
+                        return false;
+                    }
                 }
 
                 if index < MAX_DEPTH {
