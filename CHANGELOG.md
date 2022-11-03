@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2022-11-03
+
+### Changed
+- Upgrade prost 0.11 (#166)
+- Upgrade criterion from 0.3 to 0.4 (#163)
+
+### Fixed
+- Restart syscalls interuppted by SIGPROF when possible (#167)
+- Only do per-frame-blocklist-check when frame-pointer is enabled (#172)
+
 ## [0.10.1] - 2022-08-29
 
 ### Changed
