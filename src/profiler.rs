@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use findshlibs::{Segment, SharedLibrary, TargetSharedLibrary};
 
-use crate::backtrace::{Frame, Trace, TraceImpl};
+use crate::backtrace::{Trace, TraceImpl};
 use crate::collector::Collector;
 use crate::error::{Error, Result};
 use crate::frames::UnresolvedFrames;
@@ -290,7 +290,7 @@ extern "C" fn perf_signal_handler(
             TraceImpl::trace(ucontext, |frame| {
                 #[cfg(feature = "frame-pointer")]
                 {
-                    let ip = Frame::ip(frame);
+                    let ip = crate::backtrace::Frame::ip(frame);
                     if profiler.is_blocklisted(ip) {
                         return false;
                     }
