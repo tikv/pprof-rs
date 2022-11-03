@@ -43,7 +43,7 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 ## Flamegraph
 
 ```toml
-pprof = { version = "0.10", features = ["flamegraph"] }
+pprof = { version = "0.11", features = ["flamegraph"] }
 ```
 
 If `flamegraph` feature is enabled, you can generate flamegraph from the report. `Report` struct has a method `flamegraph` which can generate flamegraph and write it into a `Write`.
