@@ -4,13 +4,19 @@ extern crate libc;
 
 use std::ffi::c_void;
 
-#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+#[cfg(not(target_env = "gnu"))]
+#[allow(clippy::wrong_self_convention)]
+#[allow(non_upper_case_globals)]
+static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
+
+#[cfg(target_arch = "riscv64")]
 #[allow(clippy::wrong_self_convention)]
 #[allow(non_upper_case_globals)]
 static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void> = None;
 
 extern "C" {
-    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[cfg(target_env = "gnu")]
+    #[cfg(not(target_arch = "riscv64"))]
     static mut __malloc_hook: Option<extern "C" fn(size: usize) -> *mut c_void>;
 
     fn malloc(size: usize) -> *mut c_void;
