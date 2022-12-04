@@ -32,7 +32,7 @@ pub struct Timer {
 
 impl Timer {
     pub fn new(frequency: c_int) -> Timer {
-        let interval = 1e6 as i64 / i64::from(frequency);
+        let interval = (1e6 as i64).checked_div(i64::from(frequency)).unwrap_or(0);
         let it_interval = Timeval {
             tv_sec: interval / 1e6 as i64,
             tv_usec: interval % 1e6 as i64,
