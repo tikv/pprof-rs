@@ -1,23 +1,27 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
-use std::collections::hash_map::DefaultHasher;
+use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::frames::UnresolvedFrames;
 
-use tempfile::NamedTempFile;
-
 pub const BUCKETS: usize = 1 << 12;
 pub const BUCKETS_ASSOCIATIVITY: usize = 4;
-pub const BUFFER_LENGTH: usize = (1 << 18) / std::mem::size_of::<Entry<UnresolvedFrames>>();
+pub const BUFFER_LENGTH: usize = (1 << 12) / std::mem::size_of::<Entry<UnresolvedFrames>>();
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Entry<T> {
     pub item: T,
     pub count: isize,
+}
+
+impl<T> Entry<T> {
+    /// Returns whether `count` is zero
+    pub fn has_no_counts(&self) -> bool {
+        self.count == 0
+    }
 }
 
 impl<T: Default> Default for Entry<T> {
@@ -144,120 +148,67 @@ impl<T: Hash + Eq> HashCounter<T> {
     }
 }
 
-pub struct TempFdArray<T: 'static> {
-    file: NamedTempFile,
-    buffer: Box<[T; BUFFER_LENGTH]>,
-    buffer_index: usize,
+/// An in memory data store that is fixed to be a maximum capacity, causing
+/// elements to be removed in reverse chronological order (Last In, First Out).
+pub struct Ring<T> {
+    buffer: VecDeque<T>,
+    length: usize,
 }
 
-impl<T: Default + Debug> TempFdArray<T> {
-    fn new() -> std::io::Result<TempFdArray<T>> {
-        let file = NamedTempFile::new()?;
-
-        let mut v: Vec<T> = Vec::with_capacity(BUFFER_LENGTH);
-        v.resize_with(BUFFER_LENGTH, Default::default);
-        let buffer = v.into_boxed_slice().try_into().unwrap();
-
-        Ok(Self {
-            file,
-            buffer,
-            buffer_index: 0,
-        })
-    }
-}
-
-impl<T> TempFdArray<T> {
-    fn flush_buffer(&mut self) -> std::io::Result<()> {
-        self.buffer_index = 0;
-        let buf = unsafe {
-            std::slice::from_raw_parts(
-                self.buffer.as_ptr() as *const u8,
-                BUFFER_LENGTH * std::mem::size_of::<T>(),
-            )
-        };
-        self.file.write_all(buf)?;
-
-        Ok(())
+impl<T> Ring<T> {
+    fn new() -> Self {
+        <_>::default()
     }
 
-    fn push(&mut self, entry: T) -> std::io::Result<()> {
-        if self.buffer_index >= BUFFER_LENGTH {
-            self.flush_buffer()?;
+    fn with_size(size: usize) -> Self {
+        Self {
+            buffer: VecDeque::with_capacity(size),
+            length: size,
+        }
+    }
+
+    fn push(&mut self, entry: T) {
+        if self.buffer.len() >= self.length {
+            self.buffer.pop_front();
         }
 
-        self.buffer[self.buffer_index] = entry;
-        self.buffer_index += 1;
-
-        Ok(())
+        self.buffer.push_back(entry);
     }
 
-    fn try_iter(&self) -> std::io::Result<impl Iterator<Item = &T>> {
-        let mut file_vec = Vec::new();
-        let mut file = self.file.reopen()?;
-        file.seek(SeekFrom::Start(0))?;
-        file.read_to_end(&mut file_vec)?;
-        file.seek(SeekFrom::End(0))?;
-
-        Ok(TempFdArrayIterator {
-            buffer: &self.buffer[0..self.buffer_index],
-            file_vec,
-            index: 0,
-        })
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.buffer.iter()
     }
 }
 
-pub struct TempFdArrayIterator<'a, T> {
-    pub buffer: &'a [T],
-    pub file_vec: Vec<u8>,
-    pub index: usize,
-}
-
-impl<'a, T> Iterator for TempFdArrayIterator<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index < self.buffer.len() {
-            self.index += 1;
-            Some(&self.buffer[self.index - 1])
-        } else {
-            let length = self.file_vec.len() / std::mem::size_of::<T>();
-            let ts =
-                unsafe { std::slice::from_raw_parts(self.file_vec.as_ptr() as *const T, length) };
-            if self.index - self.buffer.len() < ts.len() {
-                self.index += 1;
-                Some(&ts[self.index - self.buffer.len() - 1])
-            } else {
-                None
-            }
-        }
+impl<T> Default for Ring<T> {
+    fn default() -> Self {
+        Self::with_size(BUFFER_LENGTH)
     }
 }
 
 pub struct Collector<T: Hash + Eq + 'static> {
     map: HashCounter<T>,
-    temp_array: TempFdArray<Entry<T>>,
+    temp_array: Ring<Entry<T>>,
 }
 
-impl<T: Hash + Eq + Default + Debug + 'static> Collector<T> {
-    pub fn new() -> std::io::Result<Self> {
-        Ok(Self {
+impl<T: Hash + Eq + Default + Clone + Debug + 'static> Collector<T> {
+    pub fn new() -> Self {
+        Self {
             map: HashCounter::<T>::default(),
-            temp_array: TempFdArray::<Entry<T>>::new()?,
-        })
+            temp_array: Ring::new(),
+        }
     }
 }
 
 impl<T: Hash + Eq + 'static> Collector<T> {
-    pub fn add(&mut self, key: T, count: isize) -> std::io::Result<()> {
+    pub fn add(&mut self, key: T, count: isize) {
         if let Some(evict) = self.map.add(key, count) {
-            self.temp_array.push(evict)?;
+            self.temp_array.push(evict);
         }
-
-        Ok(())
     }
 
-    pub fn try_iter(&self) -> std::io::Result<impl Iterator<Item = &Entry<T>>> {
-        Ok(self.map.iter().chain(self.temp_array.try_iter()?))
+    pub fn iter(&self) -> impl Iterator<Item = &Entry<T>> {
+        self.map.iter().chain(self.temp_array.iter())
     }
 }
 
@@ -306,12 +257,10 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                match stack_hash_counter.add(item, 1) {
-                    None => {}
-                    Some(evict) => {
-                        test_utils::add_map(&mut real_map, &evict);
-                    }
-                }
+                let Some(evict) = stack_hash_counter.add(item, 1) else {
+                    continue;
+                };
+                test_utils::add_map(&mut real_map, &evict);
             }
         }
 
@@ -321,42 +270,28 @@ mod tests {
 
         for item in 0..(1 << 10) * 4 {
             let count = (item % 4) as isize;
-            match real_map.get(&item) {
-                Some(item) => {
-                    assert_eq!(*item, count);
-                }
-                None => {
-                    assert_eq!(count, 0);
-                }
-            }
+            assert_eq!(count, real_map.get(&item).copied().unwrap_or_default());
         }
     }
 
     #[test]
     fn collector_test() {
-        let mut collector = Collector::new().unwrap();
+        let mut collector = Collector::new();
         let mut real_map = BTreeMap::new();
 
-        for item in 0..(1 << 12) * 4 {
+        for item in 0..(1 << 10) * 4 {
             for _ in 0..(item % 4) {
-                collector.add(item, 1).unwrap();
+                collector.add(item, 1);
             }
         }
 
-        collector.try_iter().unwrap().for_each(|entry| {
-            test_utils::add_map(&mut real_map, entry);
-        });
+        collector
+            .iter()
+            .for_each(|entry| test_utils::add_map(&mut real_map, entry));
 
-        for item in 0..(1 << 12) * 4 {
+        for item in 0..(1 << 10) * 4 {
             let count = (item % 4) as isize;
-            match real_map.get(&item) {
-                Some(value) => {
-                    assert_eq!(count, *value);
-                }
-                None => {
-                    assert_eq!(count, 0);
-                }
-            }
+            assert_eq!(count, real_map.get(&item).copied().unwrap_or_default());
         }
     }
 }

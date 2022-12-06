@@ -25,8 +25,7 @@ use crate::report::ReportBuilder;
 use crate::timer::Timer;
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
-pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
-    Lazy::new(|| RwLock::new(Profiler::new()));
+pub(crate) static PROFILER: Lazy<RwLock<Profiler>> = Lazy::new(|| RwLock::new(Profiler::new()));
 
 pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
@@ -119,38 +118,31 @@ impl ProfilerGuardBuilder {
     }
     pub fn build(self) -> Result<ProfilerGuard<'static>> {
         trigger_lazy();
+        let mut profiler = PROFILER.write();
 
-        match PROFILER.write().as_mut() {
-            Err(err) => {
-                log::error!("Error in creating profiler: {}", err);
-                Err(Error::CreatingError)
-            }
-            Ok(profiler) => {
-                #[cfg(all(any(
-                    target_arch = "x86_64",
-                    target_arch = "aarch64",
-                    target_arch = "riscv64",
-                    target_arch = "loongarch64"
-                )))]
-                {
-                    profiler.blocklist_segments = self.blocklist_segments;
-                }
+        #[cfg(all(any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "riscv64",
+            target_arch = "loongarch64"
+        )))]
+        {
+            profiler.blocklist_segments = self.blocklist_segments;
+        }
 
-                match profiler.start() {
-                    Ok(()) => Ok(ProfilerGuard::<'static> {
-                        profiler: &PROFILER,
-                        timer: Some(Timer::new(self.frequency)),
-                    }),
-                    Err(err) => Err(err),
-                }
-            }
+        match profiler.start() {
+            Ok(()) => Ok(ProfilerGuard::<'static> {
+                profiler: &PROFILER,
+                timer: Some(Timer::new(self.frequency)),
+            }),
+            Err(err) => Err(err),
         }
     }
 }
 
 /// RAII structure used to stop profiling when dropped. It is the only interface to access profiler.
 pub struct ProfilerGuard<'a> {
-    profiler: &'a RwLock<Result<Profiler>>,
+    profiler: &'a RwLock<Profiler>,
     timer: Option<Timer>,
 }
 
@@ -178,12 +170,8 @@ impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
         drop(self.timer.take());
 
-        match self.profiler.write().as_mut() {
-            Err(_) => {}
-            Ok(profiler) => match profiler.stop() {
-                Ok(()) => {}
-                Err(err) => log::error!("error while stopping profiler {}", err),
-            },
+        if let Err(error) = self.profiler.write().stop() {
+            log::error!("error while stopping profiler: {error}");
         }
     }
 }
@@ -279,94 +267,93 @@ extern "C" fn perf_signal_handler(
 ) {
     let _errno = ErrnoProtector::new();
 
-    if let Some(mut guard) = PROFILER.try_write() {
-        if let Ok(profiler) = guard.as_mut() {
-            #[cfg(any(
-                target_arch = "x86_64",
-                target_arch = "aarch64",
-                target_arch = "riscv64",
-                target_arch = "loongarch64"
-            ))]
-            if !ucontext.is_null() {
-                let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
+    let Some(mut profiler) = PROFILER.try_write() else {
+        return;
+    };
 
-                #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
-                let addr =
-                    unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
+    #[cfg(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64",
+        target_arch = "loongarch64"
+    ))]
+    if !ucontext.is_null() {
+        let ucontext: *mut libc::ucontext_t = ucontext as *mut libc::ucontext_t;
 
-                #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
-                let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
-                    if mcontext.is_null() {
-                        0
-                    } else {
-                        (*mcontext).__ss.__rip as usize
-                    }
-                };
+        #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+        let addr = unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
 
-                #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
-                let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
-
-                #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
-                let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
-                    if mcontext.is_null() {
-                        0
-                    } else {
-                        (*mcontext).__ss.__pc as usize
-                    }
-                };
-
-                #[cfg(all(target_arch = "riscv64", target_os = "linux"))]
-                let addr = unsafe { (*ucontext).uc_mcontext.__gregs[libc::REG_PC] as usize };
-
-                #[cfg(all(target_arch = "loongarch64", target_os = "linux"))]
-                let addr = unsafe { (*ucontext).uc_mcontext.sc_pc as usize };
-
-                if profiler.is_blocklisted(addr) {
-                    return;
-                }
+        #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
+        let addr = unsafe {
+            let mcontext = (*ucontext).uc_mcontext;
+            if mcontext.is_null() {
+                0
+            } else {
+                (*mcontext).__ss.__rip as usize
             }
+        };
 
-            let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> =
-                SmallVec::with_capacity(MAX_DEPTH);
-            let mut index = 0;
+        #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+        let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
 
-            let sample_timestamp: SystemTime = SystemTime::now();
-            TraceImpl::trace(ucontext, |frame| {
-                #[cfg(feature = "frame-pointer")]
-                {
-                    let ip = crate::backtrace::Frame::ip(frame);
-                    if profiler.is_blocklisted(ip) {
-                        return false;
-                    }
-                }
+        #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+        let addr = unsafe {
+            let mcontext = (*ucontext).uc_mcontext;
+            if mcontext.is_null() {
+                0
+            } else {
+                (*mcontext).__ss.__pc as usize
+            }
+        };
 
-                if index < MAX_DEPTH {
-                    bt.push(frame.clone());
-                    index += 1;
-                    true
-                } else {
-                    false
-                }
-            });
+        #[cfg(all(target_arch = "riscv64", target_os = "linux"))]
+        let addr = unsafe { (*ucontext).uc_mcontext.__gregs[libc::REG_PC] as usize };
 
-            let current_thread = unsafe { libc::pthread_self() };
-            let mut name = [0; MAX_THREAD_NAME];
-            let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
+        #[cfg(all(target_arch = "loongarch64", target_os = "linux"))]
+        let addr = unsafe { (*ucontext).uc_mcontext.sc_pc as usize };
 
-            write_thread_name(current_thread, &mut name);
-
-            let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
+        if profiler.is_blocklisted(addr) {
+            return;
         }
     }
+
+    let mut bt: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]> =
+        SmallVec::with_capacity(MAX_DEPTH);
+    let mut index = 0;
+
+    let sample_timestamp: SystemTime = SystemTime::now();
+    TraceImpl::trace(ucontext, |frame| {
+        #[cfg(feature = "frame-pointer")]
+        {
+            let ip = crate::backtrace::Frame::ip(frame);
+            if profiler.is_blocklisted(ip) {
+                return false;
+            }
+        }
+
+        if index < MAX_DEPTH {
+            bt.push(frame.clone());
+            index += 1;
+            true
+        } else {
+            false
+        }
+    });
+
+    let current_thread = unsafe { libc::pthread_self() };
+    let mut name = [0; MAX_THREAD_NAME];
+    let name_ptr = &mut name as *mut [libc::c_char] as *mut libc::c_char;
+
+    write_thread_name(current_thread, &mut name);
+
+    let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
+    profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
 }
 
 impl Profiler {
-    fn new() -> Result<Self> {
-        Ok(Profiler {
-            data: Collector::new()?,
+    fn new() -> Self {
+        Self {
+            data: Collector::new(),
             sample_counter: 0,
             running: false,
 
@@ -377,7 +364,7 @@ impl Profiler {
                 target_arch = "loongarch64"
             )))]
             blocklist_segments: Vec::new(),
-        })
+        }
     }
 
     #[cfg(all(any(
@@ -411,7 +398,7 @@ impl Profiler {
 
     fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
-        self.data = Collector::new()?;
+        self.data = Collector::new();
         self.running = false;
 
         Ok(())
@@ -460,8 +447,7 @@ impl Profiler {
     ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id, sample_timestamp);
         self.sample_counter += 1;
-
-        if let Ok(()) = self.data.add(frames, 1) {}
+        self.data.add(frames, 1);
     }
 }
 
