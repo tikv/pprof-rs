@@ -1,6 +1,7 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 
 use std::os::raw::c_int;
+#[cfg(not(target_os = "linux"))]
 use std::ptr::null_mut;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -18,10 +19,12 @@ struct Itimerval {
     pub it_value: Timeval,
 }
 
+#[cfg(not(target_os = "linux"))]
 extern "C" {
     fn setitimer(which: c_int, new_value: *mut Itimerval, old_value: *mut Itimerval) -> c_int;
 }
 
+#[cfg(not(target_os = "linux"))]
 const ITIMER_PROF: c_int = 2;
 
 pub struct Timer {
@@ -32,23 +35,29 @@ pub struct Timer {
 
 impl Timer {
     pub fn new(frequency: c_int) -> Timer {
-        let interval = 1e6 as i64 / i64::from(frequency);
-        let it_interval = Timeval {
-            tv_sec: interval / 1e6 as i64,
-            tv_usec: interval % 1e6 as i64,
-        };
-        let it_value = it_interval.clone();
+        // we need to set a timer only for non-linux OS
+        // since for linux we'll have an external thread
+        // sending real-time signals to the existing threads
+        #[cfg(not(target_os = "linux"))]
+        {
+            let interval = 1e6 as i64 / i64::from(frequency);
+            let it_interval = Timeval {
+                tv_sec: interval / 1e6 as i64,
+                tv_usec: interval % 1e6 as i64,
+            };
+            let it_value = it_interval.clone();
 
-        unsafe {
-            setitimer(
-                ITIMER_PROF,
-                &mut Itimerval {
-                    it_interval,
-                    it_value,
-                },
-                null_mut(),
-            )
-        };
+            unsafe {
+                setitimer(
+                    ITIMER_PROF,
+                    &mut Itimerval {
+                        it_interval,
+                        it_value,
+                    },
+                    null_mut(),
+                )
+            };
+        }
 
         Timer {
             frequency,
@@ -68,6 +77,7 @@ impl Timer {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
 impl Drop for Timer {
     fn drop(&mut self) {
         let it_interval = Timeval {
@@ -75,6 +85,10 @@ impl Drop for Timer {
             tv_usec: 0,
         };
         let it_value = it_interval.clone();
+
+        // the timer was set only for non-linux OS
+        // as a consequence, we'll only need to set
+        // it back to 0 in that case
         unsafe {
             setitimer(
                 ITIMER_PROF,

@@ -4,10 +4,14 @@ use std::convert::TryInto;
 use std::os::raw::c_int;
 use std::time::SystemTime;
 
+#[cfg(not(target_os = "linux"))]
 use nix::sys::signal;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use smallvec::SmallVec;
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[cfg(any(
     target_arch = "x86_64",
@@ -32,7 +36,7 @@ pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
     sample_counter: i32,
 
-    running: bool,
+    running: Arc<AtomicBool>,
 
     #[cfg(all(any(
         target_arch = "x86_64",
@@ -137,10 +141,19 @@ impl ProfilerGuardBuilder {
                 }
 
                 match profiler.start() {
-                    Ok(()) => Ok(ProfilerGuard::<'static> {
-                        profiler: &PROFILER,
-                        timer: Some(Timer::new(self.frequency)),
-                    }),
+                    Ok(()) => {
+                        #[cfg(target_os = "linux")]
+                        {
+                            let running_arc = profiler.running.clone();
+                            std::thread::spawn(move || {
+                                fire_rt_signals(running_arc, self.frequency as u64)
+                            });
+                        }
+                        Ok(ProfilerGuard::<'static> {
+                            profiler: &PROFILER,
+                            timer: Some(Timer::new(self.frequency)),
+                        })
+                    }
                     Err(err) => Err(err),
                 }
             }
@@ -176,6 +189,7 @@ impl ProfilerGuard<'_> {
 
 impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
+        #[cfg(not(target_os = "linux"))]
         drop(self.timer.take());
 
         match self.profiler.write().as_mut() {
@@ -368,7 +382,7 @@ impl Profiler {
         Ok(Profiler {
             data: Collector::new()?,
             sample_counter: 0,
-            running: false,
+            running: Arc::new(AtomicBool::new(false)),
 
             #[cfg(all(any(
                 target_arch = "x86_64",
@@ -399,11 +413,11 @@ impl Profiler {
 impl Profiler {
     pub fn start(&mut self) -> Result<()> {
         log::info!("starting cpu profiler");
-        if self.running {
+        if self.running.load(Ordering::SeqCst) {
             Err(Error::Running)
         } else {
             self.register_signal_handler()?;
-            self.running = true;
+            self.running.store(true, Ordering::SeqCst);
 
             Ok(())
         }
@@ -412,14 +426,14 @@ impl Profiler {
     fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
         self.data = Collector::new()?;
-        self.running = false;
+        self.running.store(false, Ordering::SeqCst);
 
         Ok(())
     }
 
     pub fn stop(&mut self) -> Result<()> {
         log::info!("stopping cpu profiler");
-        if self.running {
+        if self.running.load(Ordering::SeqCst) {
             self.unregister_signal_handler()?;
             self.init()?;
 
@@ -430,22 +444,52 @@ impl Profiler {
     }
 
     fn register_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::SigAction(perf_signal_handler);
-        let sigaction = signal::SigAction::new(
-            handler,
-            // SA_RESTART will only restart a syscall when it's safe to do so,
-            // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
-            signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART,
-            signal::SigSet::empty(),
-        );
-        unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
+        #[cfg(target_os = "linux")]
+        {
+            use std::mem::MaybeUninit;
+            let mut sigaction: libc::sigaction = unsafe { MaybeUninit::zeroed().assume_init() };
+            sigaction.sa_sigaction = perf_signal_handler as usize;
+            sigaction.sa_flags = libc::SA_RESTART | libc::SA_SIGINFO;
+
+            unsafe {
+                let res = libc::sigaction(
+                    libc::SIGRTMIN(),
+                    &sigaction as *const _,
+                    std::ptr::null::<libc::sigaction>() as *mut libc::sigaction,
+                );
+                if res == -1 {
+                    return Err(Error::NixError(nix::errno::from_i32(errno::errno().0)));
+                }
+            };
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            let handler = signal::SigHandler::SigAction(perf_signal_handler);
+            let sigaction = signal::SigAction::new(
+                handler,
+                // SA_RESTART will only restart a syscall when it's safe to do so,
+                // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
+                signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART,
+                signal::SigSet::empty(),
+            );
+            unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
+        }
 
         Ok(())
     }
 
     fn unregister_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::SigIgn;
-        unsafe { signal::signal(signal::SIGPROF, handler) }?;
+        #[cfg(target_os = "linux")]
+        unsafe {
+            let res = libc::signal(libc::SIGRTMIN(), libc::SIG_IGN);
+            if res == libc::SIG_ERR {
+                return Err(Error::NixError(nix::errno::from_i32(errno::errno().0)));
+            }
+        };
+
+        #[cfg(not(target_os = "linux"))]
+        unsafe { signal::signal(signal::SIGPROF, signal::SigHandler::SigIgn) }?;
 
         Ok(())
     }
@@ -462,6 +506,74 @@ impl Profiler {
         self.sample_counter += 1;
 
         if let Ok(()) = self.data.add(frames, 1) {}
+    }
+}
+
+// The kernel thread ID ( the same returned by a call to gettid(2))
+// is not the same thing as the thread ID returned by pthread_self().
+//
+// Here we fetch a list of kernel thread IDs from /proc/{pid}/task
+#[cfg(target_os = "linux")]
+fn get_tids(pid_t: u32) -> Vec<u32> {
+    std::fs::read_dir(format!("/proc/{}/task", pid_t))
+        .unwrap()
+        .into_iter()
+        .filter_map(|entry| entry.map_or(None, |entry| entry.file_name().into_string().ok()))
+        .filter_map(|tid| tid.parse::<u32>().ok())
+        .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn fire_rt_signals(running: Arc<AtomicBool>, frequency: u64) {
+    use std::{thread, time::Duration};
+
+    let pid = nix::unistd::Pid::this().as_raw() as u32;
+    let prof_tid = unsafe { libc::syscall(libc::SYS_gettid) as u32 };
+
+    let interval = 1e6 as u64 / frequency;
+    let tv_usec = interval % 1e6 as u64;
+
+    while running.load(Ordering::SeqCst) {
+        let tids = get_tids(pid);
+        for tid in tids {
+            // skip the thread running this function
+            if tid == prof_tid {
+                continue;
+            }
+            signal_thread(pid, tid, libc::SIGRTMIN());
+            thread::sleep(Duration::from_micros(tv_usec));
+        }
+    }
+}
+
+// Sends signal @signum to thread @tid of process group @pid
+// Returns -1 on a failure and sets errno appropriately
+// (see man rt_tgsigqueueinfo). Retuns 0 on success.
+#[cfg(target_os = "linux")]
+fn signal_thread(pid: u32, tid: u32, signum: i32) -> isize {
+    let mut siginfo: libc::siginfo_t = unsafe { std::mem::MaybeUninit::zeroed().assume_init() };
+
+    siginfo.si_signo = signum;
+    siginfo.si_code = -2; // SI_QUEUE code
+
+    // NB: we can't use the sigqueue() syscall to deliver a signal to a precise
+    // thread since the kernel is free to deliver such a signal to any thread of that
+    // process group.
+    // We can't use pthread_sigqueue syscall neither since it expects a p_thread
+    // while we've collected Kernel Thread IDs (tid).
+    // We will use the rt_tgsigqueueinfo instead, that sends the signal and data to the
+    // single thread specified by the combination of tgid, a thread group ID, and tid,
+    // a thread in that thread group.
+    //
+    // see: https://man7.org/linux/man-pages/man2/rt_sigqueueinfo.2.html
+    unsafe {
+        libc::syscall(
+            libc::SYS_rt_tgsigqueueinfo,
+            pid as usize,
+            tid as usize,
+            signum as usize,
+            &siginfo as *const _ as usize,
+        ) as isize
     }
 }
 
