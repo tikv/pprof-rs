@@ -46,7 +46,6 @@ criterion = { version = "0.4", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 errno = { version = "0.2.8" }
-thread-priority = { version = "0.10.0" }
 
 [dependencies.symbolic-demangle]
 version = "10.1"
