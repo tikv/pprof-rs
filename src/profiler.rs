@@ -514,13 +514,12 @@ impl Profiler {
 //
 // Here we fetch a list of kernel thread IDs from /proc/{pid}/task
 #[cfg(target_os = "linux")]
-fn get_tids(pid_t: u32) -> Vec<u32> {
+fn get_tids(pid_t: u32) -> impl Iterator<Item = u32> {
     std::fs::read_dir(format!("/proc/{}/task", pid_t))
         .unwrap()
         .into_iter()
         .filter_map(|entry| entry.map_or(None, |entry| entry.file_name().into_string().ok()))
         .filter_map(|tid| tid.parse::<u32>().ok())
-        .collect()
 }
 
 #[cfg(target_os = "linux")]
@@ -541,8 +540,8 @@ fn fire_rt_signals(running: Arc<AtomicBool>, frequency: u64) {
                 continue;
             }
             signal_thread(pid, tid, libc::SIGRTMIN());
-            thread::sleep(Duration::from_micros(tv_usec));
         }
+        thread::sleep(Duration::from_micros(tv_usec));
     }
 }
 
