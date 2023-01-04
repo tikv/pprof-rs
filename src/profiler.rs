@@ -426,8 +426,12 @@ impl Profiler {
     fn init(&mut self) -> Result<()> {
         self.sample_counter = 0;
         self.data = Collector::new()?;
+        // set current running to false so that the signalling thread
+        // will stop accordingly
         self.running.store(false, Ordering::SeqCst);
-
+        // assign a fresh Arc to running so that we can avoid
+        // race conditions with the signalling thread
+        self.running = Arc::new(AtomicBool::new(false));
         Ok(())
     }
 
