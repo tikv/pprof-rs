@@ -37,7 +37,7 @@ pub struct Bucket<T: 'static> {
 
 impl<T: Eq + Default> Default for Bucket<T> {
     fn default() -> Bucket<T> {
-        let entries = Box::new(Default::default());
+        let entries = Box::default();
 
         Self { length: 0, entries }
     }

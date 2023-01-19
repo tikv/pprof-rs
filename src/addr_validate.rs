@@ -59,6 +59,10 @@ fn open_pipe() -> nix::Result<()> {
 }
 
 pub fn validate(addr: *const libc::c_void) -> bool {
+    if addr.is_null() {
+        return false;
+    }
+
     const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
 
     // read data in the pipe

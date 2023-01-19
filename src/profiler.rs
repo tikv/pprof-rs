@@ -358,7 +358,7 @@ extern "C" fn perf_signal_handler(
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
+            profiler.sample(bt, name.to_bytes(), current_thread, sample_timestamp);
         }
     }
 }
@@ -455,7 +455,7 @@ impl Profiler {
         &mut self,
         backtrace: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
         thread_name: &[u8],
-        thread_id: u64,
+        thread_id: libc::pthread_t,
         sample_timestamp: SystemTime,
     ) {
         let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id, sample_timestamp);
