@@ -19,7 +19,7 @@ jobs:
         uses: actions-rs/toolchain@v1.0.7
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: 1.56.1
           override: true
           components: rustfmt, clippy
       
@@ -35,20 +35,28 @@ jobs:
       - name: Remove pre-generated prost files to force regeneration
         run: rm proto/*.rs
 
+      - name: Specify dependency version for old Rust
+        run: |
+          cp Cargo.toml Cargo.toml.bak
+          sed -i "s|inferno = { version = \"0.11\"|inferno = { version = \"=0.11.1\"|g" ./Cargo.toml
+          sed -i "s|criterion = \"0.4\"|criterion = \"=0.3.0\"\ncsv = \"=1.1.0\"|g" Cargo.toml
+
       - name: Run cargo clippy prost
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
           args: --all-targets --features flamegraph,prost-codec -- -D warnings
 
-      - name: Check if the prost file committed to git is up-to-date
-        run: git diff --no-ext-diff --exit-code
-
       - name: Run cargo clippy protobuf
         uses: actions-rs/cargo@v1.0.3
         with:
           command: clippy
           args: --all-targets --features flamegraph,protobuf-codec -- -D warnings
+
+      - name: Check if the prost file committed to git is up-to-date
+        run: |
+          mv Cargo.toml.bak Cargo.toml
+          git diff --no-ext-diff --exit-code
 
   build:
     name: Build
@@ -74,6 +82,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
           - os: macos-latest
             target: x86_64-unknown-linux-musl
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -87,6 +96,13 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
           override: true
+
+      - name: Specify dependency version for old Rust
+        if: ${{ matrix.toolchain == '1.56.1' }}
+        run: |
+          # sed -i is not compatible with Mac OS
+          mv Cargo.toml Cargo.toml.bak
+          sed "s|inferno = { version = \"0.11\"|inferno = { version = \"=0.11.1\"|g" Cargo.toml.bak > ./Cargo.toml
 
       - name: Run cargo build prost
         uses: actions-rs/cargo@v1.0.3
@@ -125,6 +141,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: macos-latest
             target: x86_64-unknown-linux-musl
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:

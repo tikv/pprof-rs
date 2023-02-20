@@ -1,13 +1,22 @@
-use std::{cell::RefCell, mem::size_of};
+use std::{
+    mem::size_of,
+    sync::atomic::{AtomicI32, Ordering},
+};
 
 use nix::{
     errno::Errno,
     unistd::{close, read, write},
 };
 
-thread_local! {
-    static MEM_VALIDATE_PIPE: RefCell<[i32; 2]> = RefCell::new([-1, -1]);
+struct Pipes {
+    read_fd: AtomicI32,
+    write_fd: AtomicI32,
 }
+
+static MEM_VALIDATE_PIPE: Pipes = Pipes {
+    read_fd: AtomicI32::new(-1),
+    write_fd: AtomicI32::new(-1),
+};
 
 #[inline]
 #[cfg(target_os = "linux")]
@@ -42,56 +51,53 @@ fn create_pipe() -> nix::Result<(i32, i32)> {
 }
 
 fn open_pipe() -> nix::Result<()> {
-    MEM_VALIDATE_PIPE.with(|pipes| {
-        let mut pipes = pipes.borrow_mut();
+    // ignore the result
+    let _ = close(MEM_VALIDATE_PIPE.read_fd.load(Ordering::SeqCst));
+    let _ = close(MEM_VALIDATE_PIPE.write_fd.load(Ordering::SeqCst));
 
-        // ignore the result
-        let _ = close(pipes[0]);
-        let _ = close(pipes[1]);
+    let (read_fd, write_fd) = create_pipe()?;
 
-        let (read_fd, write_fd) = create_pipe()?;
+    MEM_VALIDATE_PIPE.read_fd.store(read_fd, Ordering::SeqCst);
+    MEM_VALIDATE_PIPE.write_fd.store(write_fd, Ordering::SeqCst);
 
-        pipes[0] = read_fd;
-        pipes[1] = write_fd;
-
-        Ok(())
-    })
+    Ok(())
 }
 
+// validate whether the address `addr` is readable through `write()` to a pipe
+//
+// if the second argument of `write(ptr, buf)` is not a valid address, the
+// `write()` will return an error the error number should be `EFAULT` in most
+// cases, but we regard all errors (except EINTR) as a failure of validation
 pub fn validate(addr: *const libc::c_void) -> bool {
     const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
 
     // read data in the pipe
-    let valid_read = MEM_VALIDATE_PIPE.with(|pipes| {
-        let pipes = pipes.borrow();
-        loop {
-            let mut buf = [0u8; CHECK_LENGTH];
+    let read_fd = MEM_VALIDATE_PIPE.read_fd.load(Ordering::SeqCst);
+    let valid_read = loop {
+        let mut buf = [0u8; CHECK_LENGTH];
 
-            match read(pipes[0], &mut buf) {
-                Ok(bytes) => break bytes > 0,
-                Err(_err @ Errno::EINTR) => continue,
-                Err(_err @ Errno::EAGAIN) => break true,
-                Err(_) => break false,
-            }
+        match read(read_fd, &mut buf) {
+            Ok(bytes) => break bytes > 0,
+            Err(_err @ Errno::EINTR) => continue,
+            Err(_err @ Errno::EAGAIN) => break true,
+            Err(_) => break false,
         }
-    });
+    };
 
     if !valid_read && open_pipe().is_err() {
         return false;
     }
 
-    MEM_VALIDATE_PIPE.with(|pipes| {
-        let pipes = pipes.borrow();
-        loop {
-            let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
+    let write_fd = MEM_VALIDATE_PIPE.write_fd.load(Ordering::SeqCst);
+    loop {
+        let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
 
-            match write(pipes[1], buf) {
-                Ok(bytes) => break bytes > 0,
-                Err(_err @ Errno::EINTR) => continue,
-                Err(_) => break false,
-            }
+        match write(write_fd, buf) {
+            Ok(bytes) => break bytes > 0,
+            Err(_err @ Errno::EINTR) => continue,
+            Err(_) => break false,
         }
-    })
+    }
 }
 
 #[cfg(test)]
