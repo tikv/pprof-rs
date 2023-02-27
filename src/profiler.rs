@@ -233,6 +233,11 @@ struct ErrnoProtector(libc::c_int);
 impl ErrnoProtector {
     fn new() -> Self {
         unsafe {
+            #[cfg(target_os = "android")]
+            {
+                let errno = *libc::__errno();
+                Self(errno)
+            }
             #[cfg(target_os = "linux")]
             {
                 let errno = *libc::__errno_location();
@@ -250,6 +255,10 @@ impl ErrnoProtector {
 impl Drop for ErrnoProtector {
     fn drop(&mut self) {
         unsafe {
+            #[cfg(target_os = "android")]
+            {
+                *libc::__errno() = self.0;
+            }
             #[cfg(target_os = "linux")]
             {
                 *libc::__errno_location() = self.0;
@@ -304,7 +313,10 @@ extern "C" fn perf_signal_handler(
                     }
                 };
 
-                #[cfg(all(target_arch = "aarch64", target_os = "linux"))]
+                #[cfg(all(
+                    target_arch = "aarch64",
+                    any(target_os = "android", target_os = "linux")
+                ))]
                 let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
 
                 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
