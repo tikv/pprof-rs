@@ -19,10 +19,10 @@ jobs:
         uses: actions-rs/toolchain@v1.0.7
         with:
           profile: minimal
-          toolchain: 1.56.1
+          toolchain: 1.64.0
           override: true
           components: rustfmt, clippy
-      
+
       - name: Install protobuf compiler
         run: sudo apt-get install -y protobuf-compiler
 
@@ -34,12 +34,6 @@ jobs:
 
       - name: Remove pre-generated prost files to force regeneration
         run: rm proto/*.rs
-
-      - name: Specify dependency version for old Rust
-        run: |
-          cp Cargo.toml Cargo.toml.bak
-          sed -i "s|inferno = { version = \"0.11\"|inferno = { version = \"=0.11.1\"|g" ./Cargo.toml
-          sed -i "s|criterion = \"0.4\"|criterion = \"=0.3.0\"\ncsv = \"=1.1.0\"|g" Cargo.toml
 
       - name: Run cargo clippy prost
         uses: actions-rs/cargo@v1.0.3
@@ -55,7 +49,6 @@ jobs:
 
       - name: Check if the prost file committed to git is up-to-date
         run: |
-          mv Cargo.toml.bak Cargo.toml
           git diff --no-ext-diff --exit-code
 
   build:
@@ -63,14 +56,15 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        toolchain: [stable, nightly, 1.56.1]
-        target: [
-          x86_64-unknown-linux-gnu,
-          aarch64-unknown-linux-gnu,
-          x86_64-unknown-linux-musl,
-          x86_64-apple-darwin,
-          aarch64-apple-darwin,
-        ]
+        toolchain: [stable, nightly, 1.64.0]
+        target:
+          [
+            x86_64-unknown-linux-gnu,
+            aarch64-unknown-linux-gnu,
+            x86_64-unknown-linux-musl,
+            x86_64-apple-darwin,
+            aarch64-apple-darwin,
+          ]
         exclude:
           - os: ubuntu-latest
             target: x86_64-apple-darwin
@@ -97,13 +91,6 @@ jobs:
           target: ${{ matrix.target }}
           override: true
 
-      - name: Specify dependency version for old Rust
-        if: ${{ matrix.toolchain == '1.56.1' }}
-        run: |
-          # sed -i is not compatible with Mac OS
-          mv Cargo.toml Cargo.toml.bak
-          sed "s|inferno = { version = \"0.11\"|inferno = { version = \"=0.11.1\"|g" Cargo.toml.bak > ./Cargo.toml
-
       - name: Run cargo build prost
         uses: actions-rs/cargo@v1.0.3
         with:
@@ -129,11 +116,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         toolchain: [stable, nightly]
-        target: [
-          x86_64-unknown-linux-gnu,
-          x86_64-unknown-linux-musl,
-          x86_64-apple-darwin,
-        ]
+        target:
+          [
+            x86_64-unknown-linux-gnu,
+            x86_64-unknown-linux-musl,
+            x86_64-apple-darwin,
+          ]
         exclude:
           - os: ubuntu-latest
             target: x86_64-apple-darwin
