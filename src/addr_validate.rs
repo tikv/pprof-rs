@@ -19,7 +19,7 @@ static MEM_VALIDATE_PIPE: Pipes = Pipes {
 };
 
 #[inline]
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "android", target_os = "linux"))]
 fn create_pipe() -> nix::Result<(i32, i32)> {
     use nix::fcntl::OFlag;
     use nix::unistd::pipe2;
