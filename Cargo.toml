@@ -60,7 +60,7 @@ required-features = ["flamegraph"]
 
 [[example]]
 name = "profile_proto"
-required-features = ["protobuf"]
+required-features = ["protobuf", "prost-codec"]
 
 [[example]]
 name = "multithread_flamegraph"
