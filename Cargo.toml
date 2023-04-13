@@ -59,8 +59,12 @@ name = "flamegraph"
 required-features = ["flamegraph"]
 
 [[example]]
-name = "profile_proto"
+name = "profile_proto_with_prost"
 required-features = ["protobuf", "prost-codec"]
+
+[[example]]
+name = "profile_proto_with_protobuf_codec"
+required-features = ["protobuf", "protobuf-codec"]
 
 [[example]]
 name = "multithread_flamegraph"
