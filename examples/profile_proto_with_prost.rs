@@ -104,10 +104,7 @@ fn main() {
         let profile = report.pprof().unwrap();
 
         let mut content = Vec::new();
-        #[cfg(not(feature = "protobuf-codec"))]
         profile.encode(&mut content).unwrap();
-        #[cfg(feature = "protobuf-codec")]
-        profile.write_to_vec(&mut content).unwrap();
         file.write_all(&content).unwrap();
 
         println!("report: {:?}", report);
