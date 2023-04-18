@@ -197,10 +197,13 @@ impl From<UnresolvedFrames> for Frames {
                 symbols.push(symbol);
             });
 
-            if symbols
-                .iter()
-                .any(|symbol| symbol.name() == "perf_signal_handler")
-            {
+            if symbols.iter().any(|symbol| {
+                // macOS prepends an underscore even with `#[no_mangle]`
+                matches!(
+                    &*symbol.name(),
+                    "perf_signal_handler" | "_perf_signal_handler"
+                )
+            }) {
                 // ignore frame itself and its next one
                 frame_iter.next();
                 continue;
