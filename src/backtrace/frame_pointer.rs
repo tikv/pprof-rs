@@ -36,6 +36,20 @@ impl super::Frame for Frame {
     }
 }
 
+/// helper to read a pointer from a potentially unaligned address
+///
+/// # Safety
+///
+/// Same as [`std::ptr::read_unaligned`]
+#[inline]
+unsafe fn read_ptr<T>(ptr: *const T) -> T {
+    if ptr.align_offset(std::mem::align_of::<T>()) == 0 {
+        std::ptr::read(ptr)
+    } else {
+        std::ptr::read_unaligned(ptr)
+    }
+}
+
 pub struct Trace {}
 impl super::Trace for Trace {
     type Frame = Frame;
@@ -104,13 +118,13 @@ impl super::Trace for Trace {
 
             // iterate to the next frame
             let frame = Frame {
-                ip: unsafe { (*frame_pointer).ret },
+                ip: unsafe { read_ptr(frame_pointer).ret },
             };
 
             if !cb(&frame) {
                 break;
             }
-            frame_pointer = unsafe { (*frame_pointer).frame_pointer };
+            frame_pointer = unsafe { read_ptr(frame_pointer).frame_pointer };
         }
     }
 }
@@ -119,4 +133,34 @@ impl super::Trace for Trace {
 struct FramePointerLayout {
     frame_pointer: *mut FramePointerLayout,
     ret: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[repr(C, align(64))]
+    struct AlignToSixtyFour([u8; 64]);
+
+    impl Default for AlignToSixtyFour {
+        fn default() -> Self {
+            AlignToSixtyFour([0; 64])
+        }
+    }
+
+    #[test]
+    fn test_read_ptr_aligned() {
+        let x = AlignToSixtyFour::default();
+        let ptr = &x.0[0] as *const u8;
+        assert_eq!(unsafe { read_ptr(ptr) }, x.0[0]);
+    }
+
+    #[test]
+    fn test_read_ptr_unaligned() {
+        let mut x = AlignToSixtyFour::default();
+        let expected = usize::MAX / 2;
+        x.0[1..9].copy_from_slice(&expected.to_ne_bytes()[..]);
+        let ptr: *const usize = unsafe { std::mem::transmute(&x.0[1] as *const u8) };
+        assert_eq!(unsafe { read_ptr(ptr) }, expected);
+    }
 }
