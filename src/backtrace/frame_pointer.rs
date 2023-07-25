@@ -77,7 +77,7 @@ impl super::Trace for Trace {
         let frame_pointer = unsafe { (*ucontext).uc_mcontext.__gregs[libc::REG_S0] as usize };
 
         #[cfg(all(target_arch = "loongarch64", target_os = "linux"))]
-        let frame_pointer = unsafe { (*ucontext).uc_mcontext.sc_regs[22] as usize };
+        let frame_pointer = unsafe { (*ucontext).uc_mcontext.__gregs[22] as usize };
 
         let mut frame_pointer = frame_pointer as *mut FramePointerLayout;
 
