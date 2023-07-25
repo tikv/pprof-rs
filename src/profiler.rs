@@ -339,7 +339,7 @@ extern "C" fn perf_signal_handler(
                 let addr = unsafe { (*ucontext).uc_mcontext.__gregs[libc::REG_PC] as usize };
 
                 #[cfg(all(target_arch = "loongarch64", target_os = "linux"))]
-                let addr = unsafe { (*ucontext).uc_mcontext.sc_pc as usize };
+                let addr = unsafe { (*ucontext).uc_mcontext.__pc as usize };
 
                 if profiler.is_blocklisted(addr) {
                     return;
