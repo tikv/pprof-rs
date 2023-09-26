@@ -229,7 +229,7 @@ mod protobuf {
         /// `pprof` will generate google's pprof format report.
         pub fn pprof(&self) -> crate::Result<protos::Profile> {
             let mut dedup_str = HashSet::new();
-            for key in self.data.iter().map(|(key, _)| key) {
+            for key in self.data.keys() {
                 dedup_str.insert(key.thread_name_or_id());
                 for frame in key.frames.iter() {
                     for symbol in frame {
