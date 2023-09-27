@@ -49,7 +49,7 @@ pub struct Profile {
     #[prost(int64, tag = "10")]
     pub duration_nanos: i64,
     /// The kind of events between sampled ocurrences.
-    /// e.g [ "cpu","cycles" ] or [ "heap","bytes" ]
+    /// e.g \[ "cpu","cycles" \] or \[ "heap","bytes" \]
     #[prost(message, optional, tag = "11")]
     pub period_type: ::core::option::Option<ValueType>,
     /// The number of events between sampled occurrences.
