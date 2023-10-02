@@ -18,7 +18,7 @@ pub struct UnresolvedFrames {
     pub frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
     pub thread_name: [u8; MAX_THREAD_NAME],
     pub thread_name_length: usize,
-    pub thread_id: u64,
+    pub thread_id: libc::pthread_t,
     pub sample_timestamp: SystemTime,
 }
 
@@ -45,7 +45,7 @@ impl UnresolvedFrames {
     pub fn new(
         frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
         tn: &[u8],
-        thread_id: u64,
+        thread_id: libc::pthread_t,
         sample_timestamp: SystemTime,
     ) -> Self {
         let thread_name_length = tn.len();
@@ -168,7 +168,7 @@ impl Hash for Symbol {
 pub struct Frames {
     pub frames: Vec<Vec<Symbol>>,
     pub thread_name: String,
-    pub thread_id: u64,
+    pub thread_id: libc::pthread_t,
     pub sample_timestamp: SystemTime,
 }
 
