@@ -117,8 +117,7 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
 ```
 
 ## Use with `pprof`
-
-With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format.
+With the feature `prost-codec` or `protobuf-codec` enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format.
 
 ```rust
 match guard.report().build() {
