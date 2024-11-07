@@ -8,6 +8,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::frames::UnresolvedFrames;
 
+use aligned_vec::AVec;
 use tempfile::NamedTempFile;
 
 pub const BUCKETS: usize = 1 << 12;
@@ -148,6 +149,7 @@ pub struct TempFdArray<T: 'static> {
     file: NamedTempFile,
     buffer: Box<[T; BUFFER_LENGTH]>,
     buffer_index: usize,
+    flush_n: usize,
 }
 
 impl<T: Default + Debug> TempFdArray<T> {
@@ -162,6 +164,7 @@ impl<T: Default + Debug> TempFdArray<T> {
             file,
             buffer,
             buffer_index: 0,
+            flush_n: 0,
         })
     }
 }
@@ -175,6 +178,7 @@ impl<T> TempFdArray<T> {
                 BUFFER_LENGTH * std::mem::size_of::<T>(),
             )
         };
+        self.flush_n += 1;
         self.file.write_all(buf)?;
 
         Ok(())
@@ -192,10 +196,16 @@ impl<T> TempFdArray<T> {
     }
 
     fn try_iter(&self) -> std::io::Result<impl Iterator<Item = &T>> {
-        let mut file_vec = Vec::new();
+        let size = BUFFER_LENGTH * self.flush_n * std::mem::size_of::<T>();
+
+        let mut file_vec = AVec::with_capacity(std::mem::align_of::<T>(), size);
         let mut file = self.file.reopen()?;
-        file.seek(SeekFrom::Start(0))?;
-        file.read_to_end(&mut file_vec)?;
+
+        unsafe {
+            // it's safe as the capacity is initialized to `size`, and it'll be filled with `size` bytes
+            file_vec.set_len(size);
+        }
+        file.read_exact(&mut file_vec[0..size])?;
         file.seek(SeekFrom::End(0))?;
 
         Ok(TempFdArrayIterator {
@@ -208,7 +218,7 @@ impl<T> TempFdArray<T> {
 
 pub struct TempFdArrayIterator<'a, T> {
     pub buffer: &'a [T],
-    pub file_vec: Vec<u8>,
+    pub file_vec: AVec<u8>,
     pub index: usize,
 }
 
@@ -266,7 +276,7 @@ mod test_utils {
     use super::*;
     use std::collections::BTreeMap;
 
-    pub fn add_map(hashmap: &mut BTreeMap<usize, isize>, entry: &Entry<usize>) {
+    pub fn add_map<T: std::cmp::Ord + Copy>(hashmap: &mut BTreeMap<T, isize>, entry: &Entry<T>) {
         match hashmap.get_mut(&entry.item) {
             None => {
                 hashmap.insert(entry.item, entry.count);
@@ -350,6 +360,59 @@ mod tests {
         for item in 0..(1 << 12) * 4 {
             let count = (item % 4) as isize;
             match real_map.get(&item) {
+                Some(value) => {
+                    assert_eq!(count, *value);
+                }
+                None => {
+                    assert_eq!(count, 0);
+                }
+            }
+        }
+    }
+
+    #[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Default, Clone, Copy)]
+    struct AlignTest {
+        a: u16,
+        b: u32,
+        c: u64,
+        d: u64,
+    }
+
+    // collector_align_test uses a bigger item to test the alignment of the collector
+    #[test]
+    fn collector_align_test() {
+        let mut collector = Collector::new().unwrap();
+        let mut real_map = BTreeMap::new();
+
+        for item in 0..(1 << 12) * 4 {
+            for _ in 0..(item % 4) {
+                collector
+                    .add(
+                        AlignTest {
+                            a: item as u16,
+                            b: item as u32,
+                            c: item as u64,
+                            d: item as u64,
+                        },
+                        1,
+                    )
+                    .unwrap();
+            }
+        }
+
+        collector.try_iter().unwrap().for_each(|entry| {
+            test_utils::add_map(&mut real_map, entry);
+        });
+
+        for item in 0..(1 << 12) * 4 {
+            let count = (item % 4) as isize;
+            let align_item = AlignTest {
+                a: item as u16,
+                b: item as u32,
+                c: item as u64,
+                d: item as u64,
+            };
+            match real_map.get(&align_item) {
                 Some(value) => {
                     assert_eq!(count, *value);
                 }

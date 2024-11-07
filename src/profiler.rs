@@ -281,6 +281,7 @@ impl Drop for ErrnoProtector {
     ))),
     allow(unused_variables)
 )]
+#[allow(clippy::unnecessary_cast)]
 extern "C" fn perf_signal_handler(
     _signal: c_int,
     _siginfo: *mut libc::siginfo_t,
