@@ -69,6 +69,12 @@ fn open_pipe() -> nix::Result<()> {
 // `write()` will return an error the error number should be `EFAULT` in most
 // cases, but we regard all errors (except EINTR) as a failure of validation
 pub fn validate(addr: *const libc::c_void) -> bool {
+    // it's a short circuit for null pointer, as it'll give an error in
+    // `std::slice::from_raw_parts` if the pointer is null.
+    if addr.is_null() {
+        return false;
+    }
+
     const CHECK_LENGTH: usize = 2 * size_of::<*const libc::c_void>() / size_of::<u8>();
 
     // read data in the pipe
