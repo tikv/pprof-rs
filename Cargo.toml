@@ -37,7 +37,7 @@ smallvec = "1.7"
 inferno = { version = "0.11", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.12", optional = true }
 prost-derive = { version = "0.12", optional = true }
-protobuf = { version = "2.0", optional = true }
+protobuf = { version = "3.7", optional = true }
 criterion = {version = "0.5", optional = true}
 aligned-vec = "0.6"
 
