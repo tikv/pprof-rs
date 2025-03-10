@@ -29,7 +29,7 @@ log = "0.4"
 nix = { version = "0.26", default-features = false, features = ["signal", "fs"] }
 parking_lot = "0.12"
 tempfile = "3.1"
-thiserror = "1.0"
+thiserror = "2.0"
 findshlibs = "0.10"
 cfg-if = "1.0"
 smallvec = "1.7"
