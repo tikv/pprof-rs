@@ -417,7 +417,7 @@ impl Profiler {
 
 impl Profiler {
     pub fn start(&mut self) -> Result<()> {
-        log::info!("starting cpu profiler");
+        log::debug!("starting cpu profiler");
         if self.running {
             Err(Error::Running)
         } else {
@@ -437,7 +437,7 @@ impl Profiler {
     }
 
     pub fn stop(&mut self) -> Result<()> {
-        log::info!("stopping cpu profiler");
+        log::debug!("stopping cpu profiler");
         if self.running {
             self.unregister_signal_handler()?;
             self.init()?;
