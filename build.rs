@@ -8,9 +8,9 @@ fn generate_protobuf() {
     let out_dir = std::env::var("OUT_DIR").unwrap();
 
     let mut cg = protobuf_codegen::Codegen::new();
+    cg.pure();
 
-    cg.inputs(&["proto/profile.proto"])
-        .includes(&["proto"]);
+    cg.inputs(&["proto/profile.proto"]).includes(&["proto"]);
 
     cg.customize(customize);
     cg.out_dir(&out_dir).run().unwrap();

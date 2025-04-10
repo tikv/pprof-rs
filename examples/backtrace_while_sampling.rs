@@ -22,9 +22,8 @@ fn main() {
     }
 
     if let Ok(report) = guard.report().build() {
-        #[allow(unused_variables)]
         let file = File::create("flamegraph.svg").unwrap();
-        //report.flamegraph(file).unwrap();
+        report.flamegraph(file).unwrap();
 
         println!("report: {:?}", &report);
     };
