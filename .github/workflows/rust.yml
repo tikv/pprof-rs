@@ -56,7 +56,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        toolchain: [stable, nightly, 1.66.0]
+        toolchain: [stable, nightly, 1.71.0]
         target:
           [
             x86_64-unknown-linux-gnu,
