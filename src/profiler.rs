@@ -174,6 +174,7 @@ impl ProfilerGuard<'_> {
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<'a> Drop for ProfilerGuard<'a> {
     fn drop(&mut self) {
         drop(self.timer.take());

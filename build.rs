@@ -1,5 +1,6 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
 #[cfg(feature = "protobuf-codec")]
+#[allow(clippy::needless_borrows_for_generic_args)]
 // Allow deprecated as TiKV pin versions to a outdated one.
 fn generate_protobuf() {
     use std::io::Write;

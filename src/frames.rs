@@ -62,6 +62,7 @@ impl UnresolvedFrames {
     }
 }
 
+#[allow(clippy::map_all_any_identity)]
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         let (frames1, frames2) = (&self.frames, &other.frames);
