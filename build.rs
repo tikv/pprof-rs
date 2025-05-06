@@ -1,23 +1,21 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
-
 #[cfg(feature = "protobuf-codec")]
 // Allow deprecated as TiKV pin versions to a outdated one.
-#[allow(deprecated)]
 fn generate_protobuf() {
     use std::io::Write;
-
+    let customize = <protobuf_codegen::Customize as std::default::Default>::default();
+    // Set the output directory for generated files
     let out_dir = std::env::var("OUT_DIR").unwrap();
-    protobuf_codegen_pure::run(protobuf_codegen_pure::Args {
-        out_dir: &out_dir,
-        includes: &["proto"],
-        input: &["proto/profile.proto"],
-        customize: protobuf_codegen_pure::Customize {
-            generate_accessors: Some(false),
-            lite_runtime: Some(true),
-            ..Default::default()
-        },
-    })
-    .unwrap();
+
+    let mut cg = protobuf_codegen::Codegen::new();
+    cg.pure();
+
+    cg.inputs(["proto/profile.proto"]).includes(["proto"]);
+
+    cg.customize(customize);
+    cg.out_dir(&out_dir).run().unwrap();
+
+    // Optionally, write a mod.rs file for module inclusion
     let mut f = std::fs::File::create(format!("{}/mod.rs", out_dir)).unwrap();
     write!(f, "pub mod profile;").unwrap();
 }
