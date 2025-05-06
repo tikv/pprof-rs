@@ -8,7 +8,7 @@ description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"
 documentation = "https://docs.rs/pprof/"
 readme = "README.md"
-rust-version = "1.71.0"  # MSRV
+rust-version = "1.74.0"  # MSRV
 
 [features]
 default = ["cpp"]
