@@ -1,4 +1,5 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
+
 use pprof::protos::Message;
 use std::fs::File;
 use std::io::Write;
@@ -103,7 +104,7 @@ fn main() {
         let profile = report.pprof().unwrap();
 
         let mut content = Vec::new();
-        //profile.encode(&mut content).unwrap(); # cargo tests fail with this enabled. encode doesn't seem to be recongized as a valid call.
+        profile.encode(&mut content).unwrap();
         file.write_all(&content).unwrap();
 
         println!("report: {:?}", report);
