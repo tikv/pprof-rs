@@ -20,6 +20,10 @@ frame-pointer = []
 _protobuf = []
 prost-codec = ["prost", "prost-derive", "prost-build", "sha2", "_protobuf"]
 protobuf-codec = ["protobuf", "protobuf-codegen", "_protobuf"]
+framehop-unwinder = ["framehop", "memmap2", "object"]
+perfmaps = ["arc-swap"]
+large-depth = []
+huge-depth = []
 
 [dependencies]
 backtrace = { version = "0.3" }
@@ -40,6 +44,12 @@ prost-derive = { version = "0.12", optional = true }
 protobuf = { version = ">=3.7.2", optional = true }
 criterion = {version = "0.5", optional = true}
 aligned-vec = "0.6"
+
+# framehop unwinder dependencies
+framehop = { version = "0.13", optional = true }
+memmap2 = { version = "0.5.5", optional = true }
+object = { version = "0.29.0", optional = true }
+arc-swap = { version = "1.7.1", optional = true }
 
 [dependencies.symbolic-demangle]
 version = "12.1"

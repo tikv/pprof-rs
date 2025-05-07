@@ -13,6 +13,24 @@ use symbolic_demangle::demangle;
 use crate::backtrace::{Frame, Trace, TraceImpl};
 use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
+#[cfg(feature = "perfmaps")]
+fn resolve_in_perfmap(ip: usize) -> Option<Symbol> {
+    use crate::perfmap::get_resolver;
+
+    if let Some(perf_map_resolver) = get_resolver().as_ref() {
+        if let Some(symbol) = perf_map_resolver.find(ip as _) {
+            return Some(Symbol::from(symbol));
+        }
+    }
+
+    None
+}
+
+#[cfg(not(feature = "perfmaps"))]
+fn resolve_in_perfmap(_ip: usize) -> Option<Symbol> {
+    None
+}
+
 #[derive(Clone)]
 pub struct UnresolvedFrames {
     pub frames: SmallVec<[<TraceImpl as Trace>::Frame; MAX_DEPTH]>,
@@ -192,10 +210,14 @@ impl From<UnresolvedFrames> for Frames {
         while let Some(frame) = frame_iter.next() {
             let mut symbols: Vec<Symbol> = Vec::new();
 
-            frame.resolve_symbol(|symbol| {
-                let symbol = Symbol::from(symbol);
-                symbols.push(symbol);
-            });
+            if let Some(perfmap_symbol) = resolve_in_perfmap(frame.ip() as usize) {
+                symbols.push(perfmap_symbol);
+            } else {
+                frame.resolve_symbol(|symbol| {
+                    let symbol = Symbol::from(symbol);
+                    symbols.push(symbol);
+                });
+            }
 
             if symbols.iter().any(|symbol| {
                 // macOS prepends an underscore even with `#[no_mangle]`
