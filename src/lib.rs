@@ -96,6 +96,3 @@ pub mod protos {
 
 #[cfg(feature = "criterion")]
 pub mod criterion;
-
-#[cfg(feature = "perfmaps")]
-pub use perfmap::init_perfmap_resolver;

@@ -1,17 +1,9 @@
-use std::{
-    io::BufRead,
-    path::PathBuf,
-    sync::{atomic::AtomicBool, Arc, RwLock},
-    time::Duration,
-};
+use std::{fs::File, io::BufRead, path::PathBuf, sync::{atomic::AtomicU64, Arc}};
+
+use arc_swap::ArcSwap;
+use once_cell::sync::Lazy;
 
 use crate::{Error, Symbol};
-use notify_debouncer_mini::{
-    new_debouncer,
-    notify::{RecursiveMode, Watcher},
-    DebounceEventHandler, Debouncer,
-};
-use once_cell::sync::OnceCell;
 
 #[derive(Debug)]
 pub struct PerfMap {
@@ -19,8 +11,7 @@ pub struct PerfMap {
 }
 
 impl PerfMap {
-    pub fn new(path: &PathBuf) -> Option<Self> {
-        let file = std::fs::File::open(path).ok()?;
+    pub fn new(file: File) -> Option<Self> {
         let reader = std::io::BufReader::new(file);
         let mut ranges = Vec::new();
         for line in reader.lines() {
@@ -38,10 +29,10 @@ impl PerfMap {
         Some(Self { ranges })
     }
 
-    pub fn find(&self, addr: usize) -> Option<&str> {
+    pub fn find(&self, addr: usize) -> Option<PerfMapSymbol> {
         for (start, end, name) in &self.ranges {
             if *start <= addr && addr < *end {
-                return Some(name);
+                return Some(PerfMapSymbol(name.clone()));
             }
         }
         None
@@ -62,24 +53,6 @@ impl From<PerfMapSymbol> for Symbol {
     }
 }
 
-#[derive(Debug)]
-pub struct PerfMapResolver {
-    perf_map: Arc<RwLock<Option<PerfMap>>>,
-}
-
-fn create_debouncer<F: DebounceEventHandler>(
-    event_handler: F,
-    path: &PathBuf,
-) -> Result<Debouncer<impl Watcher>, Error> {
-    let mut debouncer =
-        new_debouncer(Duration::from_secs(1), event_handler).map_err(|_| Error::CreatingError)?;
-    debouncer
-        .watcher()
-        .watch(path, RecursiveMode::NonRecursive)
-        .map_err(|_| Error::CreatingError)?;
-    Ok(debouncer)
-}
-
 fn touch(path: &PathBuf) -> Result<(), Error> {
     std::fs::OpenOptions::new()
         .create(true)
@@ -89,55 +62,38 @@ fn touch(path: &PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-impl PerfMapResolver {
-    pub fn new() -> Result<Self, Error> {
-        let path = PathBuf::from("/tmp/").join(format!("perf-{}.map", std::process::id()));
-        touch(&path)?;
+static MTIME: AtomicU64 = AtomicU64::new(0);
 
-        let perf_map = Arc::new(RwLock::new(PerfMap::new(&path)));
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let debouncer = create_debouncer(tx, &path)?;
-        let thread_perf_map = Arc::clone(&perf_map);
-
-        std::thread::spawn(move || {
-            for result in rx {
-                match result {
-                    Ok(_events) => {
-                        if let Ok(mut perf_map) = thread_perf_map.write() {
-                            *perf_map = PerfMap::new(&path);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            drop(debouncer);
-        });
-        Ok(Self { perf_map })
-    }
-
-    pub fn resolve(&self, addr: usize) -> Option<PerfMapSymbol> {
-        if let Ok(Some(perf_map)) = self.perf_map.read().as_deref() {
-            perf_map.find(addr).map(|s| PerfMapSymbol(s.to_string()))
+fn init_resolver() -> Option<PerfMap> {
+    let path = PathBuf::from("/tmp/").join(format!("perf-{}.map", std::process::id()));
+    File::open(&path).ok().and_then(|f| {
+        let mtime = path.metadata().ok()?.modified().ok()?;
+        let mtime = mtime.duration_since(std::time::UNIX_EPOCH).ok()?;
+        if MTIME.load(std::sync::atomic::Ordering::Relaxed) == mtime.as_secs() {
+            return None;
         } else {
-            None
+            MTIME.store(mtime.as_secs(), std::sync::atomic::Ordering::Relaxed);
         }
-    }
+        PerfMap::new(f)
+    })
 }
 
-static PERF_MAP_RESOLVER: OnceCell<PerfMapResolver> = OnceCell::new();
-static SHOULD_USE_PERF_MAP: AtomicBool = AtomicBool::new(false);
+pub fn get_resolver() -> Arc<Option<PerfMap>> {
+    static RESOLVER: Lazy<ArcSwap<Option<PerfMap>>> = Lazy::new(|| {
+        // this makes sure the file exists
+        touch(&PathBuf::from("/tmp/").join(format!("perf-{}.map", std::process::id()))).ok();
+        ArcSwap::from(Arc::new(init_resolver()))
+    });
 
-pub fn get_resolver() -> Result<Option<&'static PerfMapResolver>, Error> {
-    if SHOULD_USE_PERF_MAP.load(std::sync::atomic::Ordering::Relaxed) {
-        Ok(Some(
-            PERF_MAP_RESOLVER.get_or_try_init(|| PerfMapResolver::new())?,
-        ))
-    } else {
-        Ok(None)
-    }
-}
+    std::thread::spawn(|| {
+        let perf_map = init_resolver();
 
-pub fn init_perfmap_resolver() {
-    SHOULD_USE_PERF_MAP.store(true, std::sync::atomic::Ordering::Relaxed);
+        if perf_map.is_none() {
+            return;
+        }
+
+        RESOLVER.store(Arc::new(perf_map));
+    });
+
+    RESOLVER.load().clone()
 }
