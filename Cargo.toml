@@ -11,7 +11,7 @@ readme = "README.md"
 rust-version = "1.74.0"  # MSRV
 
 [features]
-default = ["cpp", "framehop-unwinder"]
+default = ["cpp"]
 cpp = ["symbolic-demangle/cpp"]
 flamegraph = ["inferno"]
 frame-pointer = []
