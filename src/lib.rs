@@ -40,6 +40,13 @@
 //! [README.md](https://github.com/tikv/pprof-rs/blob/master/README.md)
 
 /// Define the MAX supported stack depth. TODO: make this variable mutable.
+#[cfg(feature = "large-depth")]
+pub const MAX_DEPTH: usize = 1024;
+
+#[cfg(all(feature = "huge-depth", not(feature = "large-depth")))]
+pub const MAX_DEPTH: usize = 512;
+
+#[cfg(not(any(feature = "large-depth", feature = "huge-depth")))]
 pub const MAX_DEPTH: usize = 128;
 
 /// Define the MAX supported thread name length. TODO: make this variable mutable.
@@ -51,6 +58,8 @@ mod backtrace;
 mod collector;
 mod error;
 mod frames;
+#[cfg(feature = "perfmaps")]
+mod perfmap;
 mod profiler;
 mod report;
 mod timer;
