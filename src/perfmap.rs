@@ -1,4 +1,9 @@
-use std::{fs::File, io::BufRead, path::PathBuf, sync::{atomic::AtomicU64, Arc}};
+use std::{
+    fs::File,
+    io::BufRead,
+    path::PathBuf,
+    sync::{atomic::AtomicU64, Arc},
+};
 
 use arc_swap::ArcSwap;
 use once_cell::sync::Lazy;
