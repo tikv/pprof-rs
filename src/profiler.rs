@@ -6,8 +6,8 @@ use std::time::SystemTime;
 
 use nix::sys::signal;
 use once_cell::sync::Lazy;
-use parking_lot::RwLock;
 use smallvec::SmallVec;
+use spin::RwLock;
 
 #[cfg(any(
     target_arch = "x86_64",
