@@ -87,8 +87,7 @@ impl PartialEq for UnresolvedFrames {
             false
         } else {
             Iterator::zip(frames1.iter(), frames2.iter())
-                .map(|(s1, s2)| s1.symbol_address() == s2.symbol_address())
-                .all(|equal| equal)
+                .all(|(s1, s2)| s1.symbol_address() == s2.symbol_address())
         }
     }
 }
