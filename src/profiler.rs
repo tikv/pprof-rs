@@ -32,6 +32,7 @@ pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
     sample_counter: i32,
 
+    old_sigaction: Option<signal::SigAction>,
     running: bool,
 
     #[cfg(any(
@@ -448,24 +449,24 @@ impl Profiler {
         }
     }
 
-    fn register_signal_handler(&self) -> Result<()> {
+    fn register_signal_handler(&mut self) -> Result<()> {
         let handler = signal::SigHandler::SigAction(perf_signal_handler);
         let sigaction = signal::SigAction::new(
             handler,
             // SA_RESTART will only restart a syscall when it's safe to do so,
             // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
-            signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART,
+            signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART | signal::SaFlags::SA_ONSTACK,
             signal::SigSet::empty(),
         );
-        unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
-
+        let old_action = unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
+        self.old_sigaction = Some(old_action);
         Ok(())
     }
 
-    fn unregister_signal_handler(&self) -> Result<()> {
-        let handler = signal::SigHandler::SigIgn;
-        unsafe { signal::signal(signal::SIGPROF, handler) }?;
-
+    fn unregister_signal_handler(&mut self) -> Result<()> {
+        if let Some(old_action) = self.old_sigaction.take() {
+            unsafe { signal::sigaction(signal::SIGPROF, &old_action) }?;
+        }
         Ok(())
     }
 
