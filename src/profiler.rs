@@ -388,6 +388,7 @@ impl Profiler {
         Ok(Profiler {
             data: Collector::new()?,
             sample_counter: 0,
+            old_sigaction: None,
             running: false,
 
             #[cfg(any(
