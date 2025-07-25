@@ -35,6 +35,7 @@ pub struct Profiler {
     old_sigaction: Option<signal::SigAction>,
     running: bool,
 
+    on_stack: bool,
     #[cfg(any(
         target_arch = "x86_64",
         target_arch = "aarch64",
@@ -47,6 +48,7 @@ pub struct Profiler {
 #[derive(Clone)]
 pub struct ProfilerGuardBuilder {
     frequency: c_int,
+    on_stack: bool,
     #[cfg(any(
         target_arch = "x86_64",
         target_arch = "aarch64",
@@ -60,6 +62,7 @@ impl Default for ProfilerGuardBuilder {
     fn default() -> ProfilerGuardBuilder {
         ProfilerGuardBuilder {
             frequency: 99,
+            on_stack: false,
 
             #[cfg(any(
                 target_arch = "x86_64",
@@ -75,6 +78,14 @@ impl Default for ProfilerGuardBuilder {
 impl ProfilerGuardBuilder {
     pub fn frequency(self, frequency: c_int) -> Self {
         Self { frequency, ..self }
+    }
+
+    /// Sets whether to use an alternate signal stack.
+    ///
+    /// This should be enabled when the profiler is used in an environment
+    /// with small stacks (e.g., inside a Go program) to prevent stack overflow.
+    pub fn on_stack(self, on_stack: bool) -> Self {
+        Self { on_stack, ..self }
     }
 
     #[cfg(any(
@@ -127,6 +138,7 @@ impl ProfilerGuardBuilder {
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
+                profiler.on_stack = self.on_stack;
                 #[cfg(any(
                     target_arch = "x86_64",
                     target_arch = "aarch64",
@@ -391,6 +403,7 @@ impl Profiler {
             old_sigaction: None,
             running: false,
 
+            on_stack: false,
             #[cfg(any(
                 target_arch = "x86_64",
                 target_arch = "aarch64",
@@ -452,16 +465,16 @@ impl Profiler {
 
     fn register_signal_handler(&mut self) -> Result<()> {
         let handler = signal::SigHandler::SigAction(perf_signal_handler);
-        let sigaction = signal::SigAction::new(
-            handler,
-            // SA_RESTART will only restart a syscall when it's safe to do so,
-            // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
+        // SA_RESTART will only restart a syscall when it's safe to do so,
+        // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
+        let mut flags = signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART;
+        if self.on_stack {
             // SA_ONSTACK will deliver the signal on an alternate stack. This is crucial
             // to prevent a stack overflow if the signal arrives at a thread with
             // a small stack, which is common when use pprof-rs in Go runtimes.
-            signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART | signal::SaFlags::SA_ONSTACK,
-            signal::SigSet::empty(),
-        );
+            flags |= signal::SaFlags::SA_ONSTACK;
+        }
+        let sigaction = signal::SigAction::new(handler, flags, signal::SigSet::empty());
         let old_action = unsafe { signal::sigaction(signal::SIGPROF, &sigaction) }?;
         self.old_sigaction = Some(old_action);
         Ok(())
