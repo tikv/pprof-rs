@@ -456,6 +456,9 @@ impl Profiler {
             handler,
             // SA_RESTART will only restart a syscall when it's safe to do so,
             // e.g. when it's a blocking read(2) or write(2). See man 7 signal.
+            // SA_ONSTACK will deliver the signal on an alternate stack. This is crucial
+            // to prevent a stack overflow if the signal arrives at a thread with
+            // a small stack, which is common when use pprof-rs in Go runtimes.
             signal::SaFlags::SA_SIGINFO | signal::SaFlags::SA_RESTART | signal::SaFlags::SA_ONSTACK,
             signal::SigSet::empty(),
         );
