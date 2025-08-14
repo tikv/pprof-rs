@@ -226,6 +226,110 @@ mod protobuf {
     const THREAD: &str = "thread";
 
     impl Report {
+        /// Create a `Report` from a protobuf `Profile`. This can be useful
+        /// for creating a flamegraph from a saved protobuf file.
+        pub fn from_pprof(profile: &protos::Profile) -> crate::Result<Self> {
+            let mut data = HashMap::new();
+
+            let strings: Vec<&str> = profile.string_table.iter().map(|s| s.as_str()).collect();
+
+            let mut functions = HashMap::new();
+            for func in profile.function.iter() {
+                functions.insert(func.id, func);
+            }
+
+            let mut locations = HashMap::new();
+            for loc in profile.location.iter() {
+                locations.insert(loc.id, loc);
+            }
+
+            for sample in profile.sample.iter() {
+                let mut frames = Vec::new();
+
+                for &loc_id in sample.location_id.iter() {
+                    if let Some(location) = locations.get(&loc_id) {
+                        let mut symbols = Vec::new();
+
+                        for line in location.line.iter() {
+                            if let Some(function) = functions.get(&line.function_id) {
+                                let name =
+                                    strings.get(function.name as usize).unwrap_or(&"Unknown");
+                                let filename = strings
+                                    .get(function.filename as usize)
+                                    .unwrap_or(&"Unknown");
+
+                                let symbol = crate::Symbol {
+                                    name: Some(name.as_bytes().to_vec()),
+                                    addr: None,
+                                    lineno: if line.line > 0 {
+                                        Some(line.line as u32)
+                                    } else {
+                                        None
+                                    },
+                                    filename: if *filename != "Unknown" {
+                                        Some(filename.into())
+                                    } else {
+                                        None
+                                    },
+                                };
+                                symbols.push(symbol);
+                            }
+                        }
+
+                        if !symbols.is_empty() {
+                            frames.push(symbols);
+                        }
+                    }
+                }
+
+                // Extract thread name from labels
+                let mut thread_name = String::new();
+                for label in sample.label.iter() {
+                    let key_str = strings.get(label.key as usize).unwrap_or(&"");
+                    if *key_str == THREAD {
+                        thread_name = strings.get(label.str as usize).unwrap_or(&"").to_string();
+                        break;
+                    }
+                }
+
+                let frames_key = Frames {
+                    frames,
+                    thread_name,
+                    thread_id: 0, // Not preserved in protobuf format
+                    sample_timestamp: SystemTime::UNIX_EPOCH, // Not preserved
+                };
+
+                let count = sample.value.first().copied().unwrap_or(0) as isize;
+                *data.entry(frames_key).or_insert(0) += count;
+            }
+
+            let frequency = if profile.period > 0 {
+                (1_000_000_000 / profile.period) as i32
+            } else {
+                1
+            };
+
+            let start_time = if profile.time_nanos > 0 {
+                SystemTime::UNIX_EPOCH + std::time::Duration::from_nanos(profile.time_nanos as u64)
+            } else {
+                SystemTime::UNIX_EPOCH
+            };
+
+            let duration = if profile.duration_nanos > 0 {
+                std::time::Duration::from_nanos(profile.duration_nanos as u64)
+            } else {
+                std::time::Duration::default()
+            };
+
+            let timing = crate::timer::ReportTiming {
+                frequency,
+                start_time,
+                duration,
+            };
+
+            Ok(Report { data, timing })
+        }
+
         /// `pprof` will generate google's pprof format report.
         pub fn pprof(&self) -> crate::Result<protos::Profile> {
             let mut dedup_str = HashSet::new();
@@ -260,40 +364,45 @@ mod protobuf {
             for (key, count) in self.data.iter() {
                 let mut locs = vec![];
                 for frame in key.frames.iter() {
+                    let location_id = loc_tbl.len() as u64 + 1;
+                    let mut lines = vec![];
+
                     for symbol in frame {
                         let name = symbol.name();
-                        if let Some(loc_idx) = functions.get(&name) {
-                            locs.push(*loc_idx);
-                            continue;
-                        }
-                        let sys_name = symbol.sys_name();
-                        let filename = symbol.filename();
-                        let lineno = symbol.lineno();
-                        let function_id = fn_tbl.len() as u64 + 1;
-                        let function = protos::Function {
-                            id: function_id,
-                            name: *strings.get(name.as_str()).unwrap() as i64,
-                            system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
-                            filename: *strings.get(filename.as_ref()).unwrap() as i64,
-                            ..protos::Function::default()
+                        let function_id = if let Some(&existing_id) = functions.get(&name) {
+                            existing_id
+                        } else {
+                            let sys_name = symbol.sys_name();
+                            let filename = symbol.filename();
+                            let function_id = fn_tbl.len() as u64 + 1;
+                            let function = protos::Function {
+                                id: function_id,
+                                name: *strings.get(name.as_str()).unwrap() as i64,
+                                system_name: *strings.get(sys_name.as_ref()).unwrap() as i64,
+                                filename: *strings.get(filename.as_ref()).unwrap() as i64,
+                                ..protos::Function::default()
+                            };
+                            functions.insert(name, function_id);
+                            fn_tbl.push(function);
+                            function_id
                         };
-                        functions.insert(name, function_id);
+
+                        let lineno = symbol.lineno();
                         let line = protos::Line {
                             function_id,
                             line: lineno as i64,
                             ..protos::Line::default()
                         };
-                        let loc = protos::Location {
-                            id: function_id,
-                            line: vec![line].into(),
-                            ..protos::Location::default()
-                        };
-                        // the fn_tbl has the same length with loc_tbl
-                        fn_tbl.push(function);
-                        loc_tbl.push(loc);
-                        // current frame locations
-                        locs.push(function_id);
+                        lines.push(line);
                     }
+
+                    let loc = protos::Location {
+                        id: location_id,
+                        line: lines.into(),
+                        ..protos::Location::default()
+                    };
+                    loc_tbl.push(loc);
+                    locs.push(location_id);
                 }
                 let thread_name = protos::Label {
                     key: *strings.get(THREAD).unwrap() as i64,
@@ -339,6 +448,83 @@ mod protobuf {
                 ..protos::Profile::default()
             };
             Ok(profile)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::collections::HashSet;
+
+        #[test]
+        fn test_roundtrip_conversion() {
+            let guard = crate::ProfilerGuard::new(100).unwrap();
+
+            // Generate profiling data with different call patterns
+            for i in 0..100000 {
+                if i % 3 == 0 {
+                    expensive_function_a(i);
+                } else if i % 3 == 1 {
+                    expensive_function_b(i);
+                } else {
+                    expensive_function_c(i);
+                }
+            }
+
+            let report = guard.report().build().unwrap();
+            assert!(
+                !report.data.is_empty(),
+                "Should have captured some profiling data"
+            );
+
+            let profile = report.pprof().unwrap();
+            let restored_report = Report::from_pprof(&profile).unwrap();
+
+            let original_symbols: HashSet<String> = report
+                .data
+                .keys()
+                .flat_map(|frames| frames.frames.iter())
+                .flat_map(|frame| frame.iter())
+                .map(|symbol| symbol.name())
+                .collect();
+
+            let restored_symbols: HashSet<String> = restored_report
+                .data
+                .keys()
+                .flat_map(|frames| frames.frames.iter())
+                .flat_map(|frame| frame.iter())
+                .map(|symbol| symbol.name())
+                .collect();
+
+            assert_eq!(original_symbols.len(), restored_symbols.len());
+            for symbol in &original_symbols {
+                assert!(restored_symbols.contains(symbol));
+            }
+
+            let original_total: isize = report.data.values().sum();
+            let restored_total: isize = restored_report.data.values().sum();
+            assert_eq!(original_total, restored_total);
+
+            assert_eq!(report.timing.frequency, restored_report.timing.frequency);
+        }
+
+        #[inline(never)]
+        fn expensive_function_a(n: usize) -> usize {
+            (0..n % 100).map(|i| i * i).sum()
+        }
+
+        #[inline(never)]
+        fn expensive_function_b(n: usize) -> usize {
+            (0..n % 50).fold(1, |acc, x| acc.wrapping_mul(x + 1))
+        }
+
+        #[inline(never)]
+        fn expensive_function_c(n: usize) -> usize {
+            let mut result = n;
+            for i in 0..n % 30 {
+                result = result.wrapping_add(i * 3);
+            }
+            result
         }
     }
 }
