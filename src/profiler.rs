@@ -279,6 +279,11 @@ impl ErrnoProtector {
                 let errno = *libc::__error();
                 Self(errno)
             }
+            #[cfg(target_os = "openbsd")]
+            {
+                let errno = *libc::__errno();
+                Self(errno)
+            }
         }
     }
 }
@@ -297,6 +302,10 @@ impl Drop for ErrnoProtector {
             #[cfg(any(target_os = "macos", target_os = "freebsd"))]
             {
                 *libc::__error() = self.0;
+            }
+            #[cfg(target_os = "openbsd")]
+            {
+                *libc::__errno() = self.0;
             }
         }
     }
@@ -337,6 +346,8 @@ extern "C" fn perf_signal_handler(
 
                 #[cfg(all(target_arch = "x86_64", target_os = "freebsd"))]
                 let addr = unsafe { (*ucontext).uc_mcontext.mc_rip as usize };
+                #[cfg(all(target_arch = "x86_64", target_os = "openbsd"))]
+                let addr = unsafe { (*ucontext).sc_rip as usize };
 
                 #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
                 let addr = unsafe {
