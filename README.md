@@ -110,7 +110,7 @@ fn frames_post_processor() -> impl Fn(&mut pprof::Frames) {
 ```
 
 ```rust
-if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report().build() {
+if let Ok(report) = guard.report().frames_post_processor(frames_post_processor()).build() {
     let file = File::create("flamegraph.svg").unwrap();
     report.flamegraph(file).unwrap();
 }
