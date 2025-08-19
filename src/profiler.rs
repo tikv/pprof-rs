@@ -264,7 +264,7 @@ struct ErrnoProtector(libc::c_int);
 impl ErrnoProtector {
     fn new() -> Self {
         unsafe {
-            #[cfg(target_os = "android")]
+            #[cfg(any(target_os = "android", target_os = "netbsd"))]
             {
                 let errno = *libc::__errno();
                 Self(errno)
@@ -286,7 +286,7 @@ impl ErrnoProtector {
 impl Drop for ErrnoProtector {
     fn drop(&mut self) {
         unsafe {
-            #[cfg(target_os = "android")]
+            #[cfg(any(target_os = "android", target_os = "netbsd"))]
             {
                 *libc::__errno() = self.0;
             }
@@ -335,8 +335,12 @@ extern "C" fn perf_signal_handler(
                 let addr =
                     unsafe { (*ucontext).uc_mcontext.gregs[libc::REG_RIP as usize] as usize };
 
-                #[cfg(all(target_arch = "x86_64", target_os = "freebsd"))]
+                #[cfg(target_os = "freebsd")]
                 let addr = unsafe { (*ucontext).uc_mcontext.mc_rip as usize };
+
+                #[cfg(all(target_arch = "x86_64", target_os = "netbsd"))]
+                let addr =
+                    unsafe { (*ucontext).uc_mcontext.__gregs[libc::_REG_RIP as usize] as usize };
 
                 #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
                 let addr = unsafe {
@@ -354,7 +358,7 @@ extern "C" fn perf_signal_handler(
                 ))]
                 let addr = unsafe { (*ucontext).uc_mcontext.pc as usize };
 
-                #[cfg(all(target_arch = "aarch64", target_os = "freebsd"))]
+                #[cfg(all(target_arch = "aarch64", any(target_os = "freebsd", target_os = "netbsd")))]
                 let addr = unsafe { (*ucontext).mc_gpregs.gp_elr as usize };
 
                 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
