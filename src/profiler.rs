@@ -188,6 +188,7 @@ pub struct ProfilerGuard<'a> {
 fn trigger_lazy() {
     let _ = backtrace::Backtrace::new();
     let _profiler = PROFILER.read();
+    TraceImpl::init();
 }
 
 impl ProfilerGuard<'_> {
@@ -522,5 +523,83 @@ impl Profiler {
         self.sample_counter += 1;
 
         if let Ok(()) = self.data.add(frames, 1) {}
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    struct AllocDetector {
+        should_count_alloc: std::sync::atomic::AtomicBool,
+        alloc_count: std::sync::atomic::AtomicUsize,
+    }
+
+    unsafe impl std::alloc::GlobalAlloc for AllocDetector {
+        unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+            if self
+                .should_count_alloc
+                .load(std::sync::atomic::Ordering::SeqCst)
+                && self
+                    .alloc_count
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                    == 0
+            {
+                // it's not safe to print and unwind here, but it's fine for test purpose
+                println!(
+                    "allocation happened during unwinding! {:?}",
+                    backtrace::Backtrace::new()
+                );
+            }
+
+            unsafe { std::alloc::System.alloc(layout) }
+        }
+
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+            unsafe { std::alloc::System.dealloc(ptr, layout) }
+        }
+    }
+    impl AllocDetector {
+        fn enable_count_alloc(&self) {
+            self.should_count_alloc
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        fn disable_count_alloc(&self) {
+            self.should_count_alloc
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        fn alloc_count(&self) -> usize {
+            self.alloc_count.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    #[global_allocator]
+    static ALLOC: AllocDetector = AllocDetector {
+        should_count_alloc: std::sync::atomic::AtomicBool::new(false),
+        alloc_count: std::sync::atomic::AtomicUsize::new(0),
+    };
+
+    #[test]
+    fn test_no_alloc_during_unwind() {
+        // This test cannot run parallelly because it requires the global allocator to
+        // record the allocation count.
+
+        trigger_lazy();
+        PROFILER.write().as_mut().unwrap().start().unwrap();
+        let timer = Timer::new(999);
+        let start = std::time::Instant::now();
+        ALLOC.enable_count_alloc();
+
+        // busy loop for a while to trigger some samples
+        while start.elapsed().as_millis() < 500 {
+            std::hint::black_box(());
+        }
+        assert_eq!(ALLOC.alloc_count(), 0);
+
+        ALLOC.disable_count_alloc();
+        drop(timer);
+        PROFILER.write().as_mut().unwrap().stop().unwrap();
     }
 }

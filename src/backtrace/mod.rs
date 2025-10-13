@@ -43,6 +43,9 @@ pub trait Frame: Sized + Clone {
 pub trait Trace {
     type Frame;
 
+    // init will be called before running the first trace in signal handler
+    fn init() {}
+
     fn trace<F: FnMut(&Self::Frame) -> bool>(_: *mut libc::c_void, cb: F)
     where
         Self: Sized;

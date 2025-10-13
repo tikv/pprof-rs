@@ -152,10 +152,16 @@ jobs:
         uses: actions-rs/cargo@v1.0.3
         with:
           command: test
-          args: --features flamegraph,prost-codec --target ${{ matrix.target }}
+          args: --features flamegraph,prost-codec --target ${{ matrix.target }} -- --test-threads 1
 
       - name: Run cargo test protobuf
         uses: actions-rs/cargo@v1.0.3
         with:
           command: test
-          args: --features flamegraph,protobuf-codec --target ${{ matrix.target }}
+          args: --features flamegraph,protobuf-codec --target ${{ matrix.target }} -- --test-threads 1
+
+      - name: Run cargo test framehop
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: test
+          args: --features flamegraph,protobuf-codec,framehop-unwinder --target ${{ matrix.target }} -- --test-threads 1
