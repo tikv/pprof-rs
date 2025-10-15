@@ -540,16 +540,9 @@ pub mod tests {
             if self
                 .should_count_alloc
                 .load(std::sync::atomic::Ordering::SeqCst)
-                && self
-                    .alloc_count
-                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
-                    == 0
             {
-                // it's not safe to print and unwind here, but it's fine for test purpose
-                println!(
-                    "allocation happened during unwinding! {:?}",
-                    backtrace::Backtrace::new()
-                );
+                self.alloc_count
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }
 
             unsafe { std::alloc::System.alloc(layout) }
@@ -592,13 +585,16 @@ pub mod tests {
         let start = std::time::Instant::now();
         ALLOC.enable_count_alloc();
 
+        // alloc something to make sure the ALLOC works fine.
+        let _alloc = Box::new(1usize);
         // busy loop for a while to trigger some samples
         while start.elapsed().as_millis() < 500 {
             std::hint::black_box(());
         }
-        assert_eq!(ALLOC.alloc_count(), 0);
-
         ALLOC.disable_count_alloc();
+
+        assert_eq!(ALLOC.alloc_count(), 1);
+
         drop(timer);
         PROFILER.write().as_mut().unwrap().stop().unwrap();
     }
