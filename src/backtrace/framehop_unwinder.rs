@@ -3,6 +3,7 @@ use framehop::{
 };
 use libc::{c_void, ucontext_t};
 use once_cell::sync::Lazy;
+use spin::RwLock;
 mod shlib;
 
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
@@ -123,7 +124,8 @@ fn read_stack(addr: u64) -> Result<u64, ()> {
     }
 }
 
-static mut UNWINDER: Lazy<FramehopUnwinder> = Lazy::new(|| FramehopUnwinder::new());
+static UNWINDER: Lazy<RwLock<FramehopUnwinder>> =
+    Lazy::new(|| RwLock::new(FramehopUnwinder::new()));
 #[derive(Clone, Debug)]
 pub struct Frame {
     pub ip: usize,
@@ -158,10 +160,22 @@ pub struct Trace;
 impl super::Trace for Trace {
     type Frame = Frame;
 
+    fn init() {
+        let _ = UNWINDER.read();
+    }
+
     fn trace<F: FnMut(&Self::Frame) -> bool>(ctx: *mut c_void, cb: F)
     where
         Self: Sized,
     {
-        unsafe { UNWINDER.iter_frames(ctx, cb) };
+        // For Linux, this `try_write` should always succeed, because `SIGPROF` will never be delivered to
+        // another thread while the signal handler is running. However, I'm not sure about other OSes, so
+        // we use `try_write` to be safe instead of using `static mut` and `unsafe` directly.
+        match UNWINDER.try_write() {
+            None => return,
+            Some(mut unwinder) => {
+                unwinder.iter_frames(ctx, cb);
+            }
+        }
     }
 }
