@@ -247,7 +247,7 @@ Unit tests have been added to guarantee there is no `malloc` in sample functions
 
 ## Minimum Supported Rust Version
 
-Rust 1.74 or higher.
+Rust 1.80 or higher.
 
 Minimum supported Rust version can be changed in the future, but it will be done with a minor version bump.
 
