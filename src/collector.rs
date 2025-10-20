@@ -80,7 +80,7 @@ impl<T: Eq> Bucket<T> {
         }
     }
 
-    pub fn iter(&self) -> BucketIterator<T> {
+    pub fn iter(&self) -> BucketIterator<'_, T> {
         BucketIterator::<T> {
             related_bucket: self,
             index: 0,
