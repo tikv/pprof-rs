@@ -28,7 +28,7 @@ fn create_pipe() -> nix::Result<(i32, i32)> {
 }
 
 #[inline]
-#[cfg(any(target_os = "macos", target_os = "freebsd"))]
+#[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "openbsd"))]
 fn create_pipe() -> nix::Result<(i32, i32)> {
     use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};
     use nix::unistd::pipe;
