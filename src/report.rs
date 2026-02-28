@@ -322,7 +322,7 @@ mod protobuf {
                 ..Default::default()
             };
             let profile = protos::Profile {
-                sample_type: vec![samples_value, time_value.clone()].into(),
+                sample_type: vec![samples_value, time_value].into(),
                 sample: samples.into(),
                 string_table: str_tbl.into(),
                 function: fn_tbl.into(),
