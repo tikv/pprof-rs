@@ -58,7 +58,7 @@ features = ["rust"]
 
 [dev-dependencies]
 criterion = "0.5"
-rand = "0.8.0"
+rand = "0.8.6"
 
 [build-dependencies]
 prost-build = { version = "0.12", optional = true }
