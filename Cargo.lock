@@ -646,6 +646,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memmap2"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1219ed1b7f229ee7104d281dd01d6802fe28bb6e95d292942c4daacdeb798c0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memoffset"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,7 +813,7 @@ dependencies = [
  "inferno",
  "libc",
  "log",
- "memmap2",
+ "memmap2 0.9.11",
  "nix",
  "object 0.29.0",
  "once_cell",
@@ -1183,7 +1192,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fac08504d60cf5bdffeb8a6a028f1a4868a5da1098bb19eb46239440039163fb"
 dependencies = [
  "debugid",
- "memmap2",
+ "memmap2 0.5.10",
  "stable_deref_trait",
  "uuid",
 ]
