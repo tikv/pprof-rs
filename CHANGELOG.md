@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Support prost 0.12, 0.13 and 0.14 via a version range (`>=0.12, <0.15`) so
+  cargo can unify prost with the version already used elsewhere in the
+  dependency graph, reducing duplicate transitive dependencies
+- Accept a range of `object` (`>=0.32, <0.38`) and `memmap2` (`>=0.5.5, <0.10`)
+  so they unify with the versions `backtrace` / `symbolic-common` already pull
+- Accept a range of `nix` (`>=0.27, <0.31`, `signal` feature only). `addr_validate`
+  now uses `libc` directly instead of `nix`'s file-descriptor API, which both
+  suits its async-signal-safe context and removes the coupling to a single `nix`
+  version
+- Bump `inferno` to 0.12 to deduplicate transitive deps
+- Drop the redundant direct `prost-derive` dependency (the derive macro is
+  re-exported by `prost` via its default `derive` feature)
+
 ## [0.15.0] - 202
 
 ### Added

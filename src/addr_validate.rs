@@ -3,10 +3,11 @@ use std::{
     sync::atomic::{AtomicI32, Ordering},
 };
 
-use nix::{
-    errno::Errno,
-    unistd::{close, read, write},
-};
+// This module talks to the OS through `libc` directly rather than through `nix`.
+// `validate` runs inside the profiler's signal handler, so the calls here must be
+// async-signal-safe (raw `read`/`write`/`pipe2`/`close` and reading `errno`
+// qualify). Using `libc` also decouples this crate from the churn in `nix`'s
+// file-descriptor API, letting `nix` be depended on with a broad version range.
 
 struct Pipes {
     read_fd: AtomicI32,
@@ -18,42 +19,65 @@ static MEM_VALIDATE_PIPE: Pipes = Pipes {
     write_fd: AtomicI32::new(-1),
 };
 
+/// Returns the current `errno`. Reading it is async-signal-safe and does not
+/// allocate.
+#[inline]
+fn errno() -> i32 {
+    std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
+}
+
 #[inline]
 #[cfg(any(target_os = "android", target_os = "linux"))]
-fn create_pipe() -> nix::Result<(i32, i32)> {
-    use nix::fcntl::OFlag;
-    use nix::unistd::pipe2;
-
-    pipe2(OFlag::O_CLOEXEC | OFlag::O_NONBLOCK)
+fn create_pipe() -> Result<(i32, i32), i32> {
+    let mut fds = [0 as libc::c_int; 2];
+    // Safety: `fds` points to an array of two `c_int`s, as `pipe2` requires. The
+    // fds are intentionally leaked (never wrapped in `OwnedFd`): these pipes live
+    // for the whole program lifetime and their raw fds are stored in atomics so
+    // they can be used from the signal handler.
+    let res = unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC | libc::O_NONBLOCK) };
+    if res != 0 {
+        return Err(errno());
+    }
+    Ok((fds[0], fds[1]))
 }
 
 #[inline]
 #[cfg(any(target_os = "macos", target_os = "freebsd"))]
-fn create_pipe() -> nix::Result<(i32, i32)> {
-    use nix::fcntl::{fcntl, FcntlArg, FdFlag, OFlag};
-    use nix::unistd::pipe;
-    use std::os::unix::io::RawFd;
-
-    fn set_flags(fd: RawFd) -> nix::Result<()> {
-        let mut flags = FdFlag::from_bits(fcntl(fd, FcntlArg::F_GETFD)?).unwrap();
-        flags |= FdFlag::FD_CLOEXEC;
-        fcntl(fd, FcntlArg::F_SETFD(flags))?;
-        let mut flags = OFlag::from_bits(fcntl(fd, FcntlArg::F_GETFL)?).unwrap();
-        flags |= OFlag::O_NONBLOCK;
-        fcntl(fd, FcntlArg::F_SETFL(flags))?;
+fn create_pipe() -> Result<(i32, i32), i32> {
+    fn set_flags(fd: libc::c_int) -> Result<(), i32> {
+        // Safety: `fd` is a valid fd returned by `pipe`.
+        unsafe {
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            if flags < 0 || libc::fcntl(fd, libc::F_SETFD, flags | libc::FD_CLOEXEC) < 0 {
+                return Err(errno());
+            }
+            let flags = libc::fcntl(fd, libc::F_GETFL);
+            if flags < 0 || libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) < 0 {
+                return Err(errno());
+            }
+        }
         Ok(())
     }
 
-    let (read_fd, write_fd) = pipe()?;
-    set_flags(read_fd)?;
-    set_flags(write_fd)?;
-    Ok((read_fd, write_fd))
+    let mut fds = [0 as libc::c_int; 2];
+    // Safety: `fds` points to an array of two `c_int`s, as `pipe` requires. The
+    // fds are intentionally leaked (see the Linux variant for rationale).
+    let res = unsafe { libc::pipe(fds.as_mut_ptr()) };
+    if res != 0 {
+        return Err(errno());
+    }
+    set_flags(fds[0])?;
+    set_flags(fds[1])?;
+    Ok((fds[0], fds[1]))
 }
 
-fn open_pipe() -> nix::Result<()> {
-    // ignore the result
-    let _ = close(MEM_VALIDATE_PIPE.read_fd.load(Ordering::SeqCst));
-    let _ = close(MEM_VALIDATE_PIPE.write_fd.load(Ordering::SeqCst));
+fn open_pipe() -> Result<(), i32> {
+    // Safety: closing the previously stored fds. They may be the -1 sentinel or
+    // already-closed, in which case `close` fails with EBADF, which we ignore.
+    unsafe {
+        libc::close(MEM_VALIDATE_PIPE.read_fd.load(Ordering::SeqCst));
+        libc::close(MEM_VALIDATE_PIPE.write_fd.load(Ordering::SeqCst));
+    }
 
     let (read_fd, write_fd) = create_pipe()?;
 
@@ -68,6 +92,11 @@ fn open_pipe() -> nix::Result<()> {
 // if the second argument of `write(ptr, buf)` is not a valid address, the
 // `write()` will return an error the error number should be `EFAULT` in most
 // cases, but we regard all errors (except EINTR) as a failure of validation
+//
+// `addr` is handed straight to `libc::write` and never dereferenced in Rust (in
+// particular we deliberately avoid `slice::from_raw_parts`, which would be UB for
+// an invalid `addr`), so keeping this a safe function is sound.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub fn validate(addr: *const libc::c_void) -> bool {
     // it's a short circuit for null pointer, as it'll give an error in
     // `std::slice::from_raw_parts` if the pointer is null.
@@ -79,16 +108,26 @@ pub fn validate(addr: *const libc::c_void) -> bool {
 
     // read data in the pipe
     let read_fd = MEM_VALIDATE_PIPE.read_fd.load(Ordering::SeqCst);
-    let valid_read = loop {
-        let mut buf = [0u8; CHECK_LENGTH];
+    // The pipe is created lazily; a sentinel of -1 means it has not been set up
+    // yet, which is treated as an invalid read so the pipe gets (re)opened below.
+    let valid_read = read_fd >= 0
+        && loop {
+            let mut buf = [0u8; CHECK_LENGTH];
 
-        match read(read_fd, &mut buf) {
-            Ok(bytes) => break bytes > 0,
-            Err(_err @ Errno::EINTR) => continue,
-            Err(_err @ Errno::EAGAIN) => break true,
-            Err(_) => break false,
-        }
-    };
+            // Safety: `read_fd` is a valid fd and `buf` is valid for writing
+            // `CHECK_LENGTH` bytes.
+            let ret = unsafe {
+                libc::read(read_fd, buf.as_mut_ptr() as *mut libc::c_void, CHECK_LENGTH)
+            };
+            if ret >= 0 {
+                break ret > 0;
+            }
+            match errno() {
+                libc::EINTR => continue,
+                libc::EAGAIN => break true,
+                _ => break false,
+            }
+        };
 
     if !valid_read && open_pipe().is_err() {
         return false;
@@ -96,12 +135,16 @@ pub fn validate(addr: *const libc::c_void) -> bool {
 
     let write_fd = MEM_VALIDATE_PIPE.write_fd.load(Ordering::SeqCst);
     loop {
-        let buf = unsafe { std::slice::from_raw_parts(addr as *const u8, CHECK_LENGTH) };
-
-        match write(write_fd, buf) {
-            Ok(bytes) => break bytes > 0,
-            Err(_err @ Errno::EINTR) => continue,
-            Err(_) => break false,
+        // Safety: `write_fd` is a valid fd. `addr` is passed straight to `write`
+        // as the source buffer: whether it is readable is exactly what we are
+        // testing, so the kernel returns EFAULT instead of faulting the process.
+        let ret = unsafe { libc::write(write_fd, addr, CHECK_LENGTH) };
+        if ret >= 0 {
+            break ret > 0;
+        }
+        match errno() {
+            libc::EINTR => continue,
+            _ => break false,
         }
     }
 }

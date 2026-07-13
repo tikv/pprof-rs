@@ -213,6 +213,9 @@ mod flamegraph {
 #[cfg(feature = "_protobuf")]
 #[allow(clippy::useless_conversion)]
 #[allow(clippy::needless_update)]
+// The prost-codec generated types derive `Copy` (so `.clone()` looks redundant),
+// but the protobuf-codec types do not, so the clone is required for that path.
+#[allow(clippy::clone_on_copy)]
 mod protobuf {
     use super::*;
     use crate::protos;
