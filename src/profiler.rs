@@ -468,8 +468,8 @@ impl Profiler {
         if self.running {
             Err(Error::Running)
         } else {
-            MISSED_SAMPLES.store(0, Ordering::Relaxed);
             self.register_signal_handler()?;
+            MISSED_SAMPLES.store(0, Ordering::Relaxed);
             self.running = true;
 
             Ok(())
