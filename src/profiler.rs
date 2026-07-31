@@ -2,6 +2,7 @@
 
 use std::convert::TryInto;
 use std::os::raw::c_int;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 use nix::sys::signal;
@@ -27,6 +28,11 @@ use crate::{MAX_DEPTH, MAX_THREAD_NAME};
 
 pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
     Lazy::new(|| RwLock::new(Profiler::new()));
+
+/// Number of SIGPROF ticks dropped because the profiler lock could not be
+/// acquired in the signal handler. Each dropped tick corresponds to one missed
+/// sampling interval. Reset to zero when the profiler starts.
+pub(crate) static MISSED_SAMPLES: AtomicU64 = AtomicU64::new(0);
 
 pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
@@ -411,6 +417,11 @@ extern "C" fn perf_signal_handler(
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
             profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
         }
+    } else {
+        // The profiler lock is held elsewhere (report building, start/stop, or
+        // another in-flight signal), so this tick produces no sample. Record it
+        // as a missed sampling interval. `fetch_add` is async-signal-safe.
+        MISSED_SAMPLES.fetch_add(1, Ordering::Relaxed);
     }
 }
 
@@ -458,6 +469,7 @@ impl Profiler {
             Err(Error::Running)
         } else {
             self.register_signal_handler()?;
+            MISSED_SAMPLES.store(0, Ordering::Relaxed);
             self.running = true;
 
             Ok(())

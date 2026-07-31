@@ -244,6 +244,13 @@ mod protobuf {
             dedup_str.insert(CPU.into());
             dedup_str.insert(NANOSECONDS.into());
             dedup_str.insert(THREAD.into());
+
+            // Freeform note about samples dropped due to profiler lock
+            // contention in the signal handler. Emitted as a pprof comment.
+            let missed_samples =
+                crate::profiler::MISSED_SAMPLES.load(std::sync::atomic::Ordering::Relaxed);
+            let missed_comment = format!("missed samples due to lock contention: {}", missed_samples);
+            dedup_str.insert(missed_comment.clone());
             // string table's first element must be an empty string
             let mut str_tbl = vec!["".to_owned()];
             str_tbl.extend(dedup_str.into_iter());
@@ -321,6 +328,7 @@ mod protobuf {
                 unit: *strings.get(NANOSECONDS).unwrap() as i64,
                 ..Default::default()
             };
+            let missed_comment_idx = *strings.get(missed_comment.as_str()).unwrap() as i64;
             let profile = protos::Profile {
                 sample_type: vec![samples_value, time_value.clone()].into(),
                 sample: samples.into(),
@@ -336,6 +344,7 @@ mod protobuf {
                 duration_nanos: self.timing.duration.as_nanos() as i64,
                 period_type: Some(time_value).into(),
                 period: 1_000_000_000 / self.timing.frequency as i64,
+                comment: vec![missed_comment_idx].into(),
                 ..protos::Profile::default()
             };
             Ok(profile)
