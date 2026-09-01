@@ -341,11 +341,11 @@ extern "C" fn perf_signal_handler(
 
                 #[cfg(all(target_arch = "x86_64", target_os = "macos"))]
                 let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
+                    let mcontext = std::ptr::addr_of!((*ucontext).uc_mcontext).read_unaligned();
                     if mcontext.is_null() {
                         0
                     } else {
-                        (*mcontext).__ss.__rip as usize
+                        std::ptr::addr_of!((*mcontext).__ss.__rip).read_unaligned() as usize
                     }
                 };
 
@@ -360,11 +360,11 @@ extern "C" fn perf_signal_handler(
 
                 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
                 let addr = unsafe {
-                    let mcontext = (*ucontext).uc_mcontext;
+                    let mcontext = std::ptr::addr_of!((*ucontext).uc_mcontext).read_unaligned();
                     if mcontext.is_null() {
                         0
                     } else {
-                        (*mcontext).__ss.__pc as usize
+                        std::ptr::addr_of!((*mcontext).__ss.__pc).read_unaligned() as usize
                     }
                 };
 

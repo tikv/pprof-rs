@@ -14,11 +14,11 @@ fn get_regs_from_context(ucontext: *mut c_void) -> Option<(UnwindRegsNative, u64
     }
 
     let thread_state = unsafe {
-        let mcontext = (*ucontext).uc_mcontext;
+        let mcontext = std::ptr::addr_of!((*ucontext).uc_mcontext).read_unaligned();
         if mcontext.is_null() {
             return None;
         } else {
-            (*mcontext).__ss
+            std::ptr::addr_of!((*mcontext).__ss).read_unaligned()
         }
     };
 
@@ -36,11 +36,11 @@ fn get_regs_from_context(ucontext: *mut c_void) -> Option<(UnwindRegsNative, u64
     }
 
     let thread_state = unsafe {
-        let mcontext = (*ucontext).uc_mcontext;
+        let mcontext = std::ptr::addr_of!((*ucontext).uc_mcontext).read_unaligned();
         if mcontext.is_null() {
             return None;
         } else {
-            (*mcontext).__ss
+            std::ptr::addr_of!((*mcontext).__ss).read_unaligned()
         }
     };
 
