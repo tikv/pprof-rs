@@ -19,7 +19,7 @@ jobs:
         uses: actions-rs/toolchain@v1.0.7
         with:
           profile: minimal
-          toolchain: 1.74.0
+          toolchain: 1.75.0
           override: true
           components: rustfmt, clippy
 
@@ -32,8 +32,8 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Remove pre-generated prost files to force regeneration
-        run: rm proto/*.rs
+      - name: Remove pre-generated prost and buffa files to force regeneration
+        run: rm proto/*.rs proto/buffa/*.rs
 
       - name: Run cargo clippy prost
         uses: actions-rs/cargo@v1.0.3
@@ -47,7 +47,18 @@ jobs:
           command: clippy
           args: --all-targets --features flamegraph,protobuf-codec -- -D warnings
 
-      - name: Check if the prost file committed to git is up-to-date
+      - name: Run cargo clippy buffa
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: clippy
+          args: --all-targets --features flamegraph,buffa-codec -- -D warnings
+
+      - name: Run cargo check with several codecs enabled
+        run: |
+          cargo check --features flamegraph,prost-codec,buffa-codec
+          cargo check --features flamegraph,prost-codec,protobuf-codec,buffa-codec
+
+      - name: Check if the prost and buffa files committed to git are up-to-date
         run: |
           git diff --no-ext-diff --exit-code
 
@@ -56,7 +67,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        toolchain: [stable, nightly, 1.74.0]
+        toolchain: [stable, nightly, 1.75.0]
         target:
           [
             x86_64-unknown-linux-gnu,
@@ -102,6 +113,12 @@ jobs:
         with:
           command: build
           args: --features flamegraph,protobuf-codec --target ${{ matrix.target }}
+
+      - name: Run cargo build buffa
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: build
+          args: --features flamegraph,buffa-codec --target ${{ matrix.target }}
 
       - name: Run cargo build frame pointer
         if: ${{ matrix.toolchain == 'nightly' && matrix.os == 'ubuntu-latest' }}
@@ -159,6 +176,12 @@ jobs:
         with:
           command: test
           args: --features flamegraph,protobuf-codec --target ${{ matrix.target }} -- --test-threads 1
+
+      - name: Run cargo test buffa
+        uses: actions-rs/cargo@v1.0.3
+        with:
+          command: test
+          args: --features flamegraph,buffa-codec --target ${{ matrix.target }} -- --test-threads 1
 
       - name: Run cargo test framehop
         uses: actions-rs/cargo@v1.0.3

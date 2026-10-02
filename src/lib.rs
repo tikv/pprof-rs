@@ -74,6 +74,9 @@ pub use self::report::{Report, ReportBuilder, UnresolvedReport};
 #[cfg(feature = "flamegraph")]
 pub use inferno::flamegraph;
 
+#[cfg(feature = "buffa-codec")]
+pub use buffa;
+
 #[allow(clippy::all)]
 #[cfg(all(feature = "prost-codec", not(feature = "protobuf-codec")))]
 pub mod protos {
@@ -92,6 +95,20 @@ pub mod protos {
     include!(concat!(env!("OUT_DIR"), "/mod.rs"));
 
     pub use self::profile::*;
+}
+
+#[allow(clippy::all)]
+#[cfg(all(
+    feature = "buffa-codec",
+    not(any(feature = "prost-codec", feature = "protobuf-codec"))
+))]
+pub mod protos {
+    pub use buffa::Message;
+
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/proto/buffa/perftools.profiles.rs"
+    ));
 }
 
 #[cfg(feature = "criterion")]
