@@ -341,4 +341,67 @@ mod protobuf {
             Ok(profile)
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::frames::Symbol;
+        use crate::protos::Message;
+        use std::path::PathBuf;
+        use std::time::Duration;
+
+        #[cfg(not(feature = "protobuf-codec"))]
+        fn round_trip(profile: &protos::Profile) -> protos::Profile {
+            protos::Profile::decode(&mut profile.encode_to_vec().as_slice()).unwrap()
+        }
+
+        #[cfg(feature = "protobuf-codec")]
+        fn round_trip(profile: &protos::Profile) -> protos::Profile {
+            protos::Profile::parse_from_bytes(&profile.write_to_bytes().unwrap()).unwrap()
+        }
+
+        fn symbol(name: &str, lineno: u32) -> Symbol {
+            Symbol {
+                name: Some(name.as_bytes().to_vec()),
+                addr: None,
+                lineno: Some(lineno),
+                filename: Some(PathBuf::from("src/main.rs")),
+            }
+        }
+
+        #[test]
+        fn pprof_round_trips_through_the_codec() {
+            let frames = Frames {
+                frames: vec![vec![symbol("leaf", 7)], vec![symbol("root", 42)]],
+                thread_name: "worker".to_owned(),
+                thread_id: 1,
+                sample_timestamp: SystemTime::UNIX_EPOCH,
+            };
+            let report = Report {
+                data: HashMap::from([(frames, 3)]),
+                timing: ReportTiming {
+                    frequency: 100,
+                    start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+                    duration: Duration::from_secs(2),
+                },
+            };
+
+            let profile = report.pprof().unwrap();
+            let decoded = round_trip(&profile);
+
+            assert_eq!(decoded, profile);
+            assert_eq!(decoded.string_table[0], "");
+            assert_eq!(decoded.sample.len(), 1);
+            assert_eq!(decoded.sample[0].location_id, [1, 2]);
+            assert_eq!(decoded.sample[0].value, [3, 30_000_000]);
+            assert_eq!(decoded.time_nanos, 1_000_000_000);
+            assert_eq!(decoded.duration_nanos, 2_000_000_000);
+            assert_eq!(decoded.period, 10_000_000);
+
+            let string = |index: i64| decoded.string_table[index as usize].as_str();
+            let functions: Vec<_> = decoded.function.iter().map(|f| string(f.name)).collect();
+            assert_eq!(functions, ["leaf", "root"]);
+            assert_eq!(string(decoded.sample[0].label[0].str), "worker");
+        }
+    }
 }

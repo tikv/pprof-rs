@@ -38,7 +38,10 @@ FRAME: backtrace::backtrace::trace::h3e91a3123a3049a5 -> FRAME: pprof::profiler:
 - `flamegraph` enables the flamegraph report format.
 - `prost-codec` enables the pprof protobuf report format through `prost`.
 - `protobuf-codec` enables the pprof protobuf report format through `protobuf` crate.
+- `buffa-codec` enables the pprof protobuf report format through `buffa`.
 - `frame-pointer` gets the backtrace through frame pointer. **only available for nightly**
+
+Only one codec is used for `pprof::protos` and `Report::pprof()`. If more than one codec feature is enabled, `protobuf-codec` is preferred over `prost-codec`, and `prost-codec` over `buffa-codec`. Cargo unifies features across the whole dependency graph, so another crate that depends on `pprof` can change which codec you get.
 
 ## Flamegraph
 
@@ -118,19 +121,21 @@ if let Ok(report) = guard.frames_post_processor(frames_post_processor()).report(
 
 ## Use with `pprof`
 
-With `protobuf` feature enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format.
+With `prost-codec`, `protobuf-codec` or `buffa-codec` enabled, `pprof-rs` can also output [`profile.proto`](https://github.com/google/pprof/blob/master/proto/profile.proto) format.
+
+The following example works with `prost-codec` and `buffa-codec`. For `protobuf-codec`, see [`examples/profile_proto_with_protobuf_codec.rs`](examples/profile_proto_with_protobuf_codec.rs).
 
 ```rust
+use pprof::protos::Message;
+
 match guard.report().build() {
     Ok(report) => {
         let mut file = File::create("profile.pb").unwrap();
         let profile = report.pprof().unwrap();
 
-        let mut content = Vec::new();
-        profile.encode(&mut content).unwrap();
-        file.write_all(&content).unwrap();
+        file.write_all(&profile.encode_to_vec()).unwrap();
 
-        println!("report: {}", &report);
+        println!("report: {:?}", &report);
     }
     Err(_) => {}
 };
@@ -145,6 +150,8 @@ Then you can use `pprof` command with `profile.pb`. For example:
 Then `pprof` will generate a svg file according to the profile.
 
 ![tree](https://user-images.githubusercontent.com/5244316/68571082-1f50ff80-049d-11ea-8437-211ab0d80480.png)
+
+With `buffa-codec`, `pprof::buffa` re-exports the `buffa` crate. By default, `buffa` returns an error when it decodes a message whose repeated fields need more than 32 MiB of memory. To read back a larger profile, raise the limit with `pprof::buffa::DecodeOptions::with_element_memory_limit`.
 
 ## Integrate with `criterion`
 
@@ -247,7 +254,7 @@ Unit tests have been added to guarantee there is no `malloc` in sample functions
 
 ## Minimum Supported Rust Version
 
-Rust 1.74 or higher.
+Rust 1.75 or higher.
 
 Minimum supported Rust version can be changed in the future, but it will be done with a minor version bump.
 
