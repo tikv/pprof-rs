@@ -38,6 +38,13 @@ pub struct UnresolvedFrames {
     pub thread_name_length: usize,
     pub thread_id: u64,
     pub sample_timestamp: SystemTime,
+    /// Timestamp in nanoseconds from CLOCK_BOOTTIME (Linux) or CLOCK_UPTIME_RAW
+    /// (macOS). Zero unless individual-sample collection is enabled. This clock
+    /// is local to the host and boot, not a wall-clock timestamp.
+    pub trace_timestamp_ns: u64,
+    /// Native OS thread ID captured at sample time, or zero when unavailable.
+    /// Unlike `thread_id`, this is not a pthread handle.
+    pub os_thread_id: u64,
 }
 
 impl Default for UnresolvedFrames {
@@ -49,6 +56,8 @@ impl Default for UnresolvedFrames {
             thread_name_length: 0,
             thread_id: 0,
             sample_timestamp: SystemTime::now(),
+            trace_timestamp_ns: 0,
+            os_thread_id: 0,
         }
     }
 }
@@ -76,6 +85,8 @@ impl UnresolvedFrames {
             thread_name_length,
             thread_id,
             sample_timestamp,
+            trace_timestamp_ns: 0,
+            os_thread_id: 0,
         }
     }
 }
@@ -83,7 +94,11 @@ impl UnresolvedFrames {
 impl PartialEq for UnresolvedFrames {
     fn eq(&self, other: &Self) -> bool {
         let (frames1, frames2) = (&self.frames, &other.frames);
-        if self.thread_id != other.thread_id || frames1.len() != frames2.len() {
+        if self.thread_id != other.thread_id
+            || self.trace_timestamp_ns != other.trace_timestamp_ns
+            || (self.trace_timestamp_ns != 0 && self.sample_timestamp != other.sample_timestamp)
+            || frames1.len() != frames2.len()
+        {
             false
         } else {
             Iterator::zip(frames1.iter(), frames2.iter())
@@ -100,6 +115,10 @@ impl Hash for UnresolvedFrames {
             .iter()
             .for_each(|frame| frame.symbol_address().hash(state));
         self.thread_id.hash(state);
+        self.trace_timestamp_ns.hash(state);
+        if self.trace_timestamp_ns != 0 {
+            self.sample_timestamp.hash(state);
+        }
     }
 }
 
@@ -187,6 +206,13 @@ pub struct Frames {
     pub thread_name: String,
     pub thread_id: u64,
     pub sample_timestamp: SystemTime,
+    /// Timestamp in nanoseconds from CLOCK_BOOTTIME (Linux) or CLOCK_UPTIME_RAW
+    /// (macOS). Zero unless individual-sample collection is enabled. This clock
+    /// is local to the host and boot, not a wall-clock timestamp.
+    pub trace_timestamp_ns: u64,
+    /// Native OS thread ID captured at sample time, or zero when unavailable.
+    /// Unlike `thread_id`, this is not a pthread handle.
+    pub os_thread_id: u64,
 }
 
 impl Frames {
@@ -241,6 +267,8 @@ impl From<UnresolvedFrames> for Frames {
                 .into_owned(),
             thread_id: frames.thread_id,
             sample_timestamp: frames.sample_timestamp,
+            trace_timestamp_ns: frames.trace_timestamp_ns,
+            os_thread_id: frames.os_thread_id,
         }
     }
 }

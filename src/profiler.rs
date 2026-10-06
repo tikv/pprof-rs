@@ -30,7 +30,9 @@ pub(crate) static PROFILER: Lazy<RwLock<Result<Profiler>>> =
 
 pub struct Profiler {
     pub(crate) data: Collector<UnresolvedFrames>,
-    sample_counter: i32,
+    sample_counter: usize,
+    sample_limit: Option<usize>,
+    individual_samples: bool,
 
     old_sigaction: Option<signal::SigAction>,
     running: bool,
@@ -50,6 +52,8 @@ pub struct Profiler {
 #[derive(Clone)]
 pub struct ProfilerGuardBuilder {
     frequency: c_int,
+    sample_limit: Option<usize>,
+    individual_samples: bool,
 
     #[cfg(feature = "frame-pointer")]
     on_stack: bool,
@@ -67,6 +71,8 @@ impl Default for ProfilerGuardBuilder {
     fn default() -> ProfilerGuardBuilder {
         ProfilerGuardBuilder {
             frequency: 99,
+            sample_limit: None,
+            individual_samples: false,
 
             #[cfg(feature = "frame-pointer")]
             on_stack: false,
@@ -83,6 +89,31 @@ impl Default for ProfilerGuardBuilder {
 }
 
 impl ProfilerGuardBuilder {
+    /// Retains separate observations for timeline export instead of combining
+    /// identical stacks. Adds a platform-clock timestamp and OS thread ID to each
+    /// observation. Use `build_unresolved` to export observations before resolving
+    /// their symbols.
+    ///
+    /// Disabled by default. Memory usage grows with the number of samples; use
+    /// [`Self::sample_limit`] to bound collection.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    pub fn retain_individual_samples(self) -> Self {
+        Self {
+            individual_samples: true,
+            ..self
+        }
+    }
+
+    /// Stops accepting observations after `limit` samples, before unwinding any
+    /// further stacks. By default collection is unlimited. A limit of zero
+    /// disables sample collection.
+    pub fn sample_limit(self, limit: usize) -> Self {
+        Self {
+            sample_limit: Some(limit),
+            ..self
+        }
+    }
+
     pub fn frequency(self, frequency: c_int) -> Self {
         Self { frequency, ..self }
     }
@@ -152,6 +183,11 @@ impl ProfilerGuardBuilder {
                 Err(Error::CreatingError)
             }
             Ok(profiler) => {
+                if profiler.running {
+                    return Err(Error::Running);
+                }
+                profiler.sample_limit = self.sample_limit;
+                profiler.individual_samples = self.individual_samples;
                 #[cfg(feature = "frame-pointer")]
                 {
                     profiler.on_stack = self.on_stack;
@@ -323,6 +359,9 @@ extern "C" fn perf_signal_handler(
 
     if let Some(mut guard) = PROFILER.try_write() {
         if let Ok(profiler) = guard.as_mut() {
+            if !profiler.running || profiler.sample_limit_reached() {
+                return;
+            }
             #[cfg(any(
                 target_arch = "x86_64",
                 target_arch = "aarch64",
@@ -384,6 +423,12 @@ extern "C" fn perf_signal_handler(
             let mut index = 0;
 
             let sample_timestamp: SystemTime = SystemTime::now();
+            let (trace_timestamp_ns, native_thread_id) =
+                sample_metadata(profiler.individual_samples);
+            if profiler.individual_samples && (trace_timestamp_ns == 0 || native_thread_id == 0) {
+                return;
+            }
+
             TraceImpl::trace(ucontext, |frame| {
                 #[cfg(feature = "frame-pointer")]
                 {
@@ -409,7 +454,14 @@ extern "C" fn perf_signal_handler(
             write_thread_name(current_thread, &mut name);
 
             let name = unsafe { std::ffi::CStr::from_ptr(name_ptr) };
-            profiler.sample(bt, name.to_bytes(), current_thread as u64, sample_timestamp);
+            profiler.sample(
+                bt,
+                name.to_bytes(),
+                current_thread as u64,
+                sample_timestamp,
+                trace_timestamp_ns,
+                native_thread_id,
+            );
         }
     }
 }
@@ -420,6 +472,8 @@ impl Profiler {
             data: Collector::new()?,
             sample_counter: 0,
             old_sigaction: None,
+            sample_limit: None,
+            individual_samples: false,
             running: false,
 
             #[cfg(feature = "frame-pointer")]
@@ -511,6 +565,11 @@ impl Profiler {
         Ok(())
     }
 
+    fn sample_limit_reached(&self) -> bool {
+        self.sample_limit
+            .map_or(false, |limit| self.sample_counter >= limit)
+    }
+
     // This function has to be AS-safe
     pub fn sample(
         &mut self,
@@ -518,9 +577,16 @@ impl Profiler {
         thread_name: &[u8],
         thread_id: u64,
         sample_timestamp: SystemTime,
+        trace_timestamp_ns: u64,
+        native_thread_id: u64,
     ) {
-        let frames = UnresolvedFrames::new(backtrace, thread_name, thread_id, sample_timestamp);
-        self.sample_counter += 1;
+        if self.sample_limit_reached() {
+            return;
+        }
+        let mut frames = UnresolvedFrames::new(backtrace, thread_name, thread_id, sample_timestamp);
+        frames.trace_timestamp_ns = trace_timestamp_ns;
+        frames.os_thread_id = native_thread_id;
+        self.sample_counter = self.sample_counter.saturating_add(1);
 
         if let Ok(()) = self.data.add(frames, 1) {}
     }
@@ -597,5 +663,121 @@ pub mod tests {
 
         drop(timer);
         PROFILER.write().as_mut().unwrap().stop().unwrap();
+    }
+}
+
+// Use non-adjustable OS clocks so observations can be correlated with other
+// timeline sources: BOOTTIME on Linux and UPTIME_RAW on macOS.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn trace_clock_ns() -> u64 {
+    #[cfg(target_os = "macos")]
+    let clock = libc::CLOCK_UPTIME_RAW;
+    #[cfg(target_os = "linux")]
+    let clock = libc::CLOCK_BOOTTIME;
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: initialized output, supported clock, async-signal-safe API.
+    if unsafe { libc::clock_gettime(clock, &mut ts) } != 0 {
+        return 0;
+    }
+    ts.tv_sec as u64 * 1_000_000_000 + ts.tv_nsec as u64
+}
+#[cfg(target_os = "macos")]
+fn os_thread_id() -> u64 {
+    let mut tid = 0;
+    // SAFETY: null selects the current thread; tid is a valid output pointer.
+    if unsafe { libc::pthread_threadid_np(0, &mut tid) } != 0 {
+        return 0;
+    }
+    tid
+}
+#[cfg(target_os = "linux")]
+fn os_thread_id() -> u64 {
+    // SAFETY: gettid has no pointer arguments.
+    unsafe { libc::syscall(libc::SYS_gettid) as u64 }
+}
+
+// Read metadata before unwinding so the timestamp locates the observation, not
+// the end of stack collection. Other platforms retain aggregated samples only.
+fn sample_metadata(individual_samples: bool) -> (u64, u64) {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    if individual_samples {
+        return (trace_clock_ns(), os_thread_id());
+    }
+    let _ = individual_samples;
+    (0, 0)
+}
+
+#[cfg(test)]
+mod sample_tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn default_collection_aggregates_and_individual_collection_preserves_observations() {
+        for individual in [false, true] {
+            let mut profiler = Profiler::new().unwrap();
+            for offset in 1..=2 {
+                profiler.sample(
+                    SmallVec::new(),
+                    b"worker",
+                    7,
+                    SystemTime::UNIX_EPOCH + Duration::from_secs(offset),
+                    if individual { offset } else { 0 },
+                    if individual { 42 } else { 0 },
+                );
+            }
+            let lock = RwLock::new(Ok(profiler));
+            let report = ReportBuilder::new(&lock, Default::default())
+                .build_unresolved()
+                .unwrap();
+            assert_eq!(report.data.len(), if individual { 2 } else { 1 });
+            assert_eq!(report.data.values().sum::<isize>(), 2);
+            for (frames, count) in report.data {
+                assert_eq!(frames.thread_id, 7);
+                if individual {
+                    assert_eq!(count, 1);
+                    assert_eq!(frames.os_thread_id, 42);
+                    assert!(frames.trace_timestamp_ns > 0);
+                } else {
+                    assert_eq!(count, 2);
+                    assert_eq!(frames.os_thread_id, 0);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn sample_limit_bounds_collection_and_defaults_to_unlimited() {
+        assert_eq!(ProfilerGuardBuilder::default().sample_limit, None);
+        assert!(!ProfilerGuardBuilder::default().individual_samples);
+        for limit in [0, 2] {
+            let mut profiler = Profiler::new().unwrap();
+            profiler.sample_limit = Some(limit);
+            for _ in 0..3 {
+                profiler.sample(SmallVec::new(), b"worker", 7, SystemTime::UNIX_EPOCH, 0, 0);
+            }
+            assert_eq!(profiler.sample_counter, limit);
+            assert!(profiler.sample_limit_reached());
+            let lock = RwLock::new(Ok(profiler));
+            let report = ReportBuilder::new(&lock, Default::default())
+                .build_unresolved()
+                .unwrap();
+            assert_eq!(report.data.values().sum::<isize>(), limit as isize);
+        }
+    }
+
+    #[test]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn individual_sample_metadata_uses_a_stable_os_thread_and_monotonic_clock() {
+        assert_eq!(sample_metadata(false), (0, 0));
+        let first = sample_metadata(true);
+        let second = sample_metadata(true);
+        assert!(first.0 > 0);
+        assert!(second.0 >= first.0);
+        assert!(first.1 > 0);
+        assert_eq!(first.1, second.1);
     }
 }

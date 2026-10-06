@@ -253,3 +253,34 @@ Minimum supported Rust version can be changed in the future, but it will be done
 
 ## License
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ftikv%2Fpprof-rs?ref=badge_large)
+
+## Individual observations for timelines
+
+By default, identical stacks are aggregated. On Linux and macOS, opt into
+individual observations when exporting a sampled timeline:
+
+```rust,no_run
+let guard = pprof::ProfilerGuardBuilder::default()
+    .frequency(100)
+    .retain_individual_samples()
+    .sample_limit(10_000)
+    .build()?;
+// Run the workload here.
+let report = guard.report().build_unresolved()?;
+for (sample, count) in report.data {
+    // Non-adjustable OS clock and OS thread ID captured before stack unwinding.
+    println!("{} {} {}", sample.trace_timestamp_ns, sample.os_thread_id, count);
+}
+# Ok::<(), pprof::Error>(())
+```
+
+`trace_timestamp_ns` uses CLOCK_BOOTTIME on Linux and CLOCK_UPTIME_RAW on macOS;
+its origin is host/boot specific. `os_thread_id` identifies the native thread,
+while the existing `thread_id` continues to hold a pthread handle. These new
+fields are zero unless individual observations are enabled. Use the unresolved
+report to defer symbol resolution until collection has finished.
+
+The sample limit is optional and defaults to unlimited. Once reached, further
+signals do not unwind or collect stacks; the guard must still be dropped to stop
+the profiling timer. Individual observations consume more memory than aggregated
+stacks, so a limit is recommended for long recordings.
