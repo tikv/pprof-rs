@@ -114,21 +114,25 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         toolchain: [stable, nightly]
-        target:
-          [
-            x86_64-unknown-linux-gnu,
-            x86_64-unknown-linux-musl,
-            x86_64-apple-darwin,
-          ]
-        exclude:
-          - os: ubuntu-latest
+        target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl]
+        include:
+          # Test x86_64 macOS on a native Intel runner. `macos-latest` is arm64, where
+          # an x86_64 binary runs under Rosetta 2 and unwinding from the SIGPROF handler
+          # crashes on macOS 26 (#305).
+          - os: macos-15-intel
+            toolchain: stable
+            target: x86_64-apple-darwin
+          - os: macos-15-intel
+            toolchain: nightly
             target: x86_64-apple-darwin
           - os: macos-latest
-            target: x86_64-unknown-linux-gnu
+            toolchain: stable
+            target: aarch64-apple-darwin
           - os: macos-latest
-            target: x86_64-unknown-linux-musl
+            toolchain: nightly
+            target: aarch64-apple-darwin
       fail-fast: false
     runs-on: ${{ matrix.os }}
 
