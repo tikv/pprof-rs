@@ -8,7 +8,7 @@ description = "An internal perf tools for rust programs."
 repository = "https://github.com/tikv/pprof-rs"
 documentation = "https://docs.rs/pprof/"
 readme = "README.md"
-rust-version = "1.74.0"  # MSRV
+rust-version = "1.79.0"  # MSRV
 
 [features]
 default = ["cpp"]
@@ -38,7 +38,7 @@ findshlibs = "0.10"
 cfg-if = "1.0"
 smallvec = "1.7"
 
-inferno = { version = "0.11", default-features = false, features = ["nameattr"], optional = true }
+inferno = { version = "0.12.7", default-features = false, features = ["nameattr"], optional = true }
 prost = { version = "0.12", optional = true }
 prost-derive = { version = "0.12", optional = true }
 protobuf = { version = ">=3.7.2", optional = true }
